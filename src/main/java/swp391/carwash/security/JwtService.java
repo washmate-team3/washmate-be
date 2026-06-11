@@ -1,6 +1,7 @@
 package swp391.carwash.security;
 
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.regex.Matcher;
@@ -26,6 +27,12 @@ public class JwtService {
             @Value("${washmate.security.jwt.secret}") String secret,
             @Value("${washmate.security.jwt.access-token-minutes}") long accessTokenMinutes,
             @Value("${washmate.security.jwt.refresh-token-days}") long refreshTokenDays) {
+        if (secret == null || secret.length() < 32) {
+            throw new IllegalArgumentException("JWT secret must be at least 32 characters");
+        }
+        if (accessTokenMinutes <= 0 || refreshTokenDays <= 0) {
+            throw new IllegalArgumentException("JWT token lifetime must be positive");
+        }
         this.secret = secret.getBytes(StandardCharsets.UTF_8);
         this.accessTokenSeconds = accessTokenMinutes * 60;
         this.refreshTokenSeconds = refreshTokenDays * 24 * 60 * 60;
@@ -83,7 +90,7 @@ public class JwtService {
                 throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid token");
             }
             String unsigned = parts[0] + "." + parts[1];
-            if (!sign(unsigned).equals(parts[2])) {
+            if (!MessageDigest.isEqual(sign(unsigned).getBytes(StandardCharsets.UTF_8), parts[2].getBytes(StandardCharsets.UTF_8))) {
                 throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid token signature");
             }
             return new String(DECODER.decode(parts[1]), StandardCharsets.UTF_8);
