@@ -1,5 +1,7 @@
 package swp391.carwash.service;
 
+import java.security.SecureRandom;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -29,6 +31,8 @@ import swp391.carwash.security.JwtService;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+    private static final SecureRandom OTP_RANDOM = new SecureRandom();
+
     private final AppUserRepository appUserRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
@@ -36,10 +40,16 @@ public class AuthService {
     private final AuthenticationManager authenticationManager;
     private final AppUserDetailsService userDetailsService;
     private final JwtService jwtService;
-    private final Map<String, String> otpStore = new ConcurrentHashMap<>();
+    private final Map<String, OtpChallenge> otpStore = new ConcurrentHashMap<>();
 
     @Value("${washmate.security.otp.mock-code}")
     private String mockOtp;
+
+    @Value("${washmate.security.otp.expose-mock-code:false}")
+    private boolean exposeMockOtp;
+
+    @Value("${washmate.security.otp.ttl-minutes:5}")
+    private long otpTtlMinutes;
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
@@ -70,14 +80,20 @@ public class AuthService {
     }
 
     public OtpResponse requestOtp(OtpRequest request) {
-        otpStore.put(request.phone(), mockOtp);
-        return new OtpResponse(request.phone(), mockOtp, "Mock OTP generated for development/demo");
+        String otp = generateOtp();
+        otpStore.put(request.phone(), new OtpChallenge(otp, OffsetDateTime.now().plusMinutes(otpTtlMinutes)));
+        return new OtpResponse(
+                request.phone(),
+                exposeMockOtp ? otp : null,
+                exposeMockOtp ? "Mock OTP generated for development/demo" : "OTP requested"
+        );
     }
 
     @Transactional
     public AuthResponse verifyOtp(OtpVerifyRequest request) {
-        String expected = otpStore.get(request.phone());
-        if (expected == null || !expected.equals(request.otp())) {
+        OtpChallenge expected = otpStore.get(request.phone());
+        if (expected == null || expected.expiresAt().isBefore(OffsetDateTime.now()) || !expected.code().equals(request.otp())) {
+            otpStore.remove(request.phone());
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid OTP");
         }
         AppUser user = appUserRepository.findByPhone(request.phone()).orElseGet(() -> {
@@ -127,5 +143,15 @@ public class AuthService {
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new ApiException(HttpStatus.FORBIDDEN, "User is not active");
         }
+    }
+
+    private String generateOtp() {
+        if (mockOtp != null && !mockOtp.isBlank()) {
+            return mockOtp;
+        }
+        return String.format("%06d", OTP_RANDOM.nextInt(1_000_000));
+    }
+
+    private record OtpChallenge(String code, OffsetDateTime expiresAt) {
     }
 }
