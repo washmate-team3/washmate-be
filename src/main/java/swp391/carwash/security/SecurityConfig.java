@@ -1,5 +1,6 @@
 package swp391.carwash.security;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -37,7 +38,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/", "/api/health", "/api/auth/**", "/actuator/health").permitAll()
+                        .requestMatchers(SecurityConfig::isPublicRequest).permitAll()
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "OWNER")
                         .anyRequest().authenticated()
                 )
@@ -50,6 +51,26 @@ public class SecurityConfig {
                 .authenticationProvider(authenticationProvider())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
+    }
+
+    private static boolean isPublicRequest(HttpServletRequest request) {
+        String contextPath = request.getContextPath();
+        String path = request.getRequestURI();
+        if (contextPath != null && !contextPath.isBlank() && path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
+        }
+        return path.equals("/")
+                || path.equals("/api/health")
+                || path.startsWith("/api/auth/")
+                || path.equals("/actuator/health")
+                || path.equals("/error")
+                || path.equals("/swagger-ui.html")
+                || path.startsWith("/swagger-ui/")
+                || path.equals("/v3/api-docs")
+                || path.startsWith("/v3/api-docs/")
+                || path.equals("/favicon.ico")
+                || path.startsWith("/webjars/")
+                || path.startsWith("/swagger-resources/");
     }
 
     @Bean
