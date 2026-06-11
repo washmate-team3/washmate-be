@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import swp391.carwash.enums.PaymentTransactionStatus;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -31,7 +33,8 @@ public class PaymentTransaction {
     @Builder.Default
     private PaymentTransactionStatus status = PaymentTransactionStatus.PENDING;
 
-    @Column(name = "raw_response", columnDefinition = "TEXT")
+    @Column(name = "raw_response", insertable = false, updatable = false)
+    @JdbcTypeCode(SqlTypes.JSON)
     private String rawResponse;
 
     @Column(name = "created_at", nullable = false, updatable = false)
