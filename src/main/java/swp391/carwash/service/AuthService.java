@@ -123,7 +123,12 @@ public class AuthService {
                         .description(roleName.name() + " role")
                         .status(RecordStatus.ACTIVE)
                         .build()));
-        userRoleRepository.save(UserRole.builder().user(user).role(role).status(RecordStatus.ACTIVE).build());
+        UserRole userRole = userRoleRepository.save(UserRole.builder()
+                .user(user)
+                .role(role)
+                .status(RecordStatus.ACTIVE)
+                .build());
+        user.getUserRoles().add(userRole);
     }
 
     private AuthResponse issueTokens(Integer userId) {
