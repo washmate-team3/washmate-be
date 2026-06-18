@@ -1,5 +1,6 @@
 package swp391.carwash.controller;
 
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -44,7 +45,7 @@ public class PaymentController {
     @PostMapping("/api/payments/{id}/confirm")
     public BookingResponse confirmPayment(
             @PathVariable Integer id,
-            @RequestBody(required = false) PaymentConfirmRequest request,
+            @Valid @RequestBody(required = false) PaymentConfirmRequest request,
             @AuthenticationPrincipal AppUserDetails principal) {
         return paymentService.confirmPayment(id, request, principal);
     }
@@ -52,7 +53,7 @@ public class PaymentController {
     @PostMapping("/api/payments/{id}/customer-confirm")
     public BookingResponse confirmCustomerPayment(
             @PathVariable Integer id,
-            @RequestBody(required = false) PaymentConfirmRequest request,
+            @Valid @RequestBody(required = false) PaymentConfirmRequest request,
             @AuthenticationPrincipal AppUserDetails principal) {
         return paymentService.confirmCustomerPayment(id, request, principal);
     }
@@ -60,7 +61,7 @@ public class PaymentController {
     @PostMapping("/api/payments/{id}/fail")
     public BookingResponse failPayment(
             @PathVariable Integer id,
-            @RequestBody(required = false) PaymentActionRequest request,
+            @Valid @RequestBody(required = false) PaymentActionRequest request,
             @AuthenticationPrincipal AppUserDetails principal) {
         return paymentService.failPayment(id, request, principal);
     }
@@ -68,7 +69,7 @@ public class PaymentController {
     @PostMapping("/api/payments/{id}/cancel")
     public BookingResponse cancelPayment(
             @PathVariable Integer id,
-            @RequestBody(required = false) PaymentActionRequest request,
+            @Valid @RequestBody(required = false) PaymentActionRequest request,
             @AuthenticationPrincipal AppUserDetails principal) {
         return paymentService.cancelPayment(id, request, principal);
     }
@@ -76,7 +77,7 @@ public class PaymentController {
     @PostMapping("/api/payments/{id}/refund")
     public BookingResponse refundPayment(
             @PathVariable Integer id,
-            @RequestBody(required = false) PaymentActionRequest request,
+            @Valid @RequestBody(required = false) PaymentActionRequest request,
             @AuthenticationPrincipal AppUserDetails principal) {
         return paymentService.refundPayment(id, request, principal);
     }

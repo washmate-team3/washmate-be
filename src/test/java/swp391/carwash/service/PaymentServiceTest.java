@@ -54,6 +54,8 @@ class PaymentServiceTest {
     @Mock
     private PaymentTransactionRepository paymentTransactionRepository;
     @Mock
+    private LoyaltyService loyaltyService;
+    @Mock
     private AppUserDetails principal;
 
     private PaymentService paymentService;
@@ -62,7 +64,7 @@ class PaymentServiceTest {
 
     @BeforeEach
     void setUp() {
-        paymentService = new PaymentService(bookingRepository, invoiceRepository, paymentRepository, paymentTransactionRepository);
+        paymentService = new PaymentService(bookingRepository, invoiceRepository, paymentRepository, paymentTransactionRepository, loyaltyService);
 
         Garage garage = Garage.builder().id(1).name("Garage 1").address("Address").phone("0900000000").build();
         AppUser customer = AppUser.builder().id(10).fullName("Customer").phone("0911111111").build();
@@ -159,6 +161,7 @@ class PaymentServiceTest {
         assertEquals(InvoiceStatus.REFUNDED, invoice.getStatus());
         assertEquals(BookingStatus.COMPLETED, booking.getStatus());
         assertSame(invoice, invoiceRepository.findByBookingId(100).orElseThrow());
+        verify(loyaltyService).rollbackEarnedPointsForBooking(booking);
     }
 
     @Test

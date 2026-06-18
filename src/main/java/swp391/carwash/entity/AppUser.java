@@ -1,6 +1,7 @@
 package swp391.carwash.entity;
 
 import jakarta.persistence.*;
+import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.Set;
 import lombok.*;
@@ -31,7 +32,17 @@ public class AppUser extends AuditableEntity {
     @Builder.Default
     private UserStatus status = UserStatus.ACTIVE;
 
-    @OneToMany(mappedBy = "user", fetch = FetchType.EAGER)
+    @Column(name = "failed_login_count", nullable = false)
+    @Builder.Default
+    private Integer failedLoginCount = 0;
+
+    @Column(name = "locked_until")
+    private OffsetDateTime lockedUntil;
+
+    @Column(name = "last_login_at")
+    private OffsetDateTime lastLoginAt;
+
+    @OneToMany(mappedBy = "user", fetch = FetchType.LAZY)
     @Builder.Default
     private Set<UserRole> userRoles = new HashSet<>();
 }

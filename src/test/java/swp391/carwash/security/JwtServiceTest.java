@@ -36,7 +36,7 @@ class JwtServiceTest {
         ApiException exception = assertThrows(ApiException.class, () -> jwtService.extractUserId(refreshToken, "access"));
 
         assertEquals(HttpStatus.UNAUTHORIZED, exception.getStatus());
-        assertEquals("Invalid token type", exception.getMessage());
+        assertEquals("Loại Token không hợp lệ", exception.getMessage());
     }
 
     @Test

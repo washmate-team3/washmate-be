@@ -7,12 +7,11 @@ import java.time.LocalDate;
 import swp391.carwash.enums.PaymentMethod;
 
 public record BookingCreateRequest(
-        @NotNull Integer garageId,
-        @NotNull Integer slotId,
-        @NotNull Integer serviceId,
-        @NotNull Integer vehicleId,
-        @NotNull @FutureOrPresent LocalDate bookingDate,
-        BigDecimal discountAmount,
-        PaymentMethod paymentMethod
-) {
+                @NotNull Integer garageId,
+                @NotNull Integer slotId,
+                @NotNull Integer serviceId,
+                @NotNull Integer vehicleId,
+                @NotNull @FutureOrPresent LocalDate bookingDate,
+                BigDecimal discountAmount,
+                PaymentMethod paymentMethod) {
 }

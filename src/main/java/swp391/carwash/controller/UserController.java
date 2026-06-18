@@ -9,7 +9,10 @@ import swp391.carwash.security.AppUserDetails;
 
 @RestController
 @RequestMapping("/api/users")
+@lombok.RequiredArgsConstructor
 public class UserController {
+    private final swp391.carwash.service.UserService userService;
+
     @GetMapping("/me")
     public MeResponse me(@AuthenticationPrincipal AppUserDetails principal) {
         return new MeResponse(
@@ -21,5 +24,13 @@ public class UserController {
                 principal.getRoleNames(),
                 principal.getGarageIds()
         );
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/me")
+    public MeResponse updateProfile(
+            @AuthenticationPrincipal AppUserDetails principal,
+            @jakarta.validation.Valid @org.springframework.web.bind.annotation.RequestBody swp391.carwash.dto.UpdateProfileRequest request
+    ) {
+        return userService.updateProfile(principal.getId(), request);
     }
 }

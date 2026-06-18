@@ -35,6 +35,7 @@ public class PaymentService {
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final LoyaltyService loyaltyService;
 
     @Transactional(readOnly = true)
     public PaymentResponse getPayment(Integer paymentId, AppUserDetails principal) {
@@ -164,6 +165,7 @@ public class PaymentService {
             booking.setStatus(BookingStatus.CANCELLED);
             booking.setCancelledAt(now);
         }
+        loyaltyService.rollbackEarnedPointsForBooking(booking);
 
         return BookingResponse.from(booking, payment, invoice);
     }

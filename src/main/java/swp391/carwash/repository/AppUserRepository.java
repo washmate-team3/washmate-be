@@ -17,4 +17,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Integer> {
 
     boolean existsByEmailIgnoreCase(String email);
     boolean existsByPhone(String phone);
+
+    @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "userRoles.garage"})
+    org.springframework.data.domain.Page<AppUser> findAll(org.springframework.data.domain.Pageable pageable);
 }

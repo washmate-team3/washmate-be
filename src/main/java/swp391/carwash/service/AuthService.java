@@ -1,18 +1,14 @@
 package swp391.carwash.service;
 
-import java.security.SecureRandom;
 import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import swp391.carwash.dto.*;
 import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.entity.AppUser;
@@ -24,96 +20,157 @@ import swp391.carwash.enums.UserStatus;
 import swp391.carwash.repository.AppUserRepository;
 import swp391.carwash.repository.RoleRepository;
 import swp391.carwash.repository.UserRoleRepository;
-import swp391.carwash.security.AppUserDetails;
-import swp391.carwash.security.AppUserDetailsService;
-import swp391.carwash.security.JwtService;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
-    private static final SecureRandom OTP_RANDOM = new SecureRandom();
-
     private final AppUserRepository appUserRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
     private final PasswordEncoder passwordEncoder;
-    private final AuthenticationManager authenticationManager;
-    private final AppUserDetailsService userDetailsService;
-    private final JwtService jwtService;
-    private final Map<String, OtpChallenge> otpStore = new ConcurrentHashMap<>();
+    private final OtpService otpService;
+    private final TokenService tokenService;
 
-    @Value("${washmate.security.otp.mock-code}")
-    private String mockOtp;
+    @Value("${washmate.security.login.max-failed-attempts:5}")
+    private int loginMaxFailedAttempts;
 
-    @Value("${washmate.security.otp.expose-mock-code:false}")
-    private boolean exposeMockOtp;
-
-    @Value("${washmate.security.otp.ttl-minutes:5}")
-    private long otpTtlMinutes;
+    @Value("${washmate.security.login.lock-minutes:15}")
+    private long loginLockMinutes;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
-        if (appUserRepository.existsByEmailIgnoreCase(request.email())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Email already exists");
+    public OtpResponse register(RegisterRequest request) {
+        String email = normalizeEmail(request.email());
+        AppUser existingUser = appUserRepository.findByEmailIgnoreCase(email).orElse(null);
+
+        if (existingUser != null) {
+            if (existingUser.getStatus() == UserStatus.ACTIVE) {
+                throw new ApiException(HttpStatus.CONFLICT, "Email đã được sử dụng");
+            } else if (existingUser.getStatus() == UserStatus.PENDING_VERIFY) {
+                // Check if the requested phone belongs to another user
+                AppUser phoneUser = appUserRepository.findByPhone(request.phone()).orElse(null);
+                if (phoneUser != null && !phoneUser.getId().equals(existingUser.getId())) {
+                    if (phoneUser.getStatus() == UserStatus.ACTIVE) {
+                        throw new ApiException(HttpStatus.CONFLICT, "Số điện thoại đã được sử dụng");
+                    } else {
+                        throw new ApiException(HttpStatus.CONFLICT, "Số điện thoại đang chờ xác thực bởi tài khoản khác");
+                    }
+                }
+
+                // Cho phép ghi đè thông tin nếu tài khoản hiện tại chưa được xác thực
+                existingUser.setPasswordHash(passwordEncoder.encode(request.password()));
+                existingUser.setFullName(request.fullName());
+                existingUser.setPhone(request.phone());
+                appUserRepository.save(existingUser);
+                
+                otpService.requestOtp(email);
+                return new OtpResponse(email, null, "Đã gửi lại mã OTP");
+            }
         }
+
+        // Logic cho user hoàn toàn mới
         if (appUserRepository.existsByPhone(request.phone())) {
-            throw new ApiException(HttpStatus.CONFLICT, "Phone already exists");
+            throw new ApiException(HttpStatus.CONFLICT, "Số điện thoại đã được sử dụng");
         }
+        
         AppUser user = AppUser.builder()
-                .email(request.email().toLowerCase())
+                .email(email)
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .fullName(request.fullName())
                 .phone(request.phone())
-                .status(UserStatus.ACTIVE)
+                .status(UserStatus.PENDING_VERIFY)
                 .build();
         appUserRepository.save(user);
         assignRole(user, RoleName.CUSTOMER);
-        return issueTokens(user.getId());
+        otpService.requestOtp(email);
+        
+        return new OtpResponse(email, null, "Đã gửi mã OTP");
     }
 
+    @Transactional
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(request.email(), request.password()));
-        AppUser user = appUserRepository.findByEmailIgnoreCase(request.email())
+        AppUser user = findUserByIdentifier(request.identifier())
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
-        ensureActive(user);
-        return issueTokens(user.getId());
+        OffsetDateTime now = OffsetDateTime.now();
+
+        if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
+            throw new ApiException(HttpStatus.LOCKED, "Account is temporarily locked");
+        }
+
+        if (!StringUtils.hasText(user.getPasswordHash()) || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
+            recordFailedLogin(user, now);
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        }
+
+        ensureActiveForLogin(user);
+        user.setFailedLoginCount(0);
+        user.setLockedUntil(null);
+        user.setLastLoginAt(now);
+        return tokenService.issueTokens(user.getId());
     }
 
+    @Transactional
     public OtpResponse requestOtp(OtpRequest request) {
-        String otp = generateOtp();
-        otpStore.put(request.phone(), new OtpChallenge(otp, OffsetDateTime.now().plusMinutes(otpTtlMinutes)));
-        return new OtpResponse(
-                request.phone(),
-                exposeMockOtp ? otp : null,
-                exposeMockOtp ? "Mock OTP generated for development/demo" : "OTP requested"
-        );
+        String email = otpService.resolveEmailIdentifier(request.identifier());
+        otpService.requestOtp(email);
+        return new OtpResponse(email, null, "OTP requested");
     }
 
     @Transactional
     public AuthResponse verifyOtp(OtpVerifyRequest request) {
-        OtpChallenge expected = otpStore.get(request.phone());
-        if (expected == null || expected.expiresAt().isBefore(OffsetDateTime.now()) || !expected.code().equals(request.otp())) {
-            otpStore.remove(request.phone());
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid OTP");
+        String email = otpService.verifyOtp(request.identifier(), request.otp());
+        AppUser user = appUserRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Tài khoản không tồn tại hoặc chưa đăng ký"));
+        if (user.getStatus() == UserStatus.PENDING_VERIFY) {
+            user.setStatus(UserStatus.ACTIVE);
         }
-        AppUser user = appUserRepository.findByPhone(request.phone()).orElseGet(() -> {
-            AppUser created = AppUser.builder()
-                    .fullName(request.fullName() == null || request.fullName().isBlank() ? "OTP Customer" : request.fullName())
-                    .phone(request.phone())
-                    .status(UserStatus.ACTIVE)
-                    .build();
-            appUserRepository.save(created);
-            assignRole(created, RoleName.CUSTOMER);
-            return created;
-        });
         ensureActive(user);
-        otpStore.remove(request.phone());
-        return issueTokens(user.getId());
+        return tokenService.issueTokens(user.getId());
     }
 
     public AuthResponse refresh(RefreshTokenRequest request) {
-        Integer userId = jwtService.extractUserId(request.refreshToken(), "refresh");
-        return issueTokens(userId);
+        return tokenService.rotateRefreshToken(request.refreshToken());
+    }
+
+    public void logout(RefreshTokenRequest request) {
+        tokenService.revokeRefreshToken(request.refreshToken());
+    }
+
+    @Transactional
+    public OtpResponse forgotPassword(OtpRequest request) {
+        AppUser user = findUserByIdentifier(request.identifier())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tài khoản không tồn tại"));
+        ensureActive(user);
+        
+        String email = otpService.resolveEmailIdentifier(request.identifier());
+        otpService.requestOtp(email);
+        return new OtpResponse(email, null, "Đã gửi mã xác thực (OTP) qua email");
+    }
+
+    @Transactional
+    public AuthResponse resetPassword(ResetPasswordRequest request) {
+        String email = otpService.verifyOtp(request.identifier(), request.otp());
+        AppUser user = appUserRepository.findByEmailIgnoreCase(email)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tài khoản không tồn tại"));
+        ensureActive(user);
+        
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        appUserRepository.save(user);
+        
+        return tokenService.issueTokens(user.getId());
+    }
+
+    @Transactional
+    public void changePassword(Integer userId, ChangePasswordRequest request) {
+        AppUser user = appUserRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tài khoản không tồn tại"));
+        ensureActive(user);
+        
+        if (!passwordEncoder.matches(request.oldPassword(), user.getPasswordHash())) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Mật khẩu cũ không chính xác");
+        }
+        
+        user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
+        appUserRepository.save(user);
     }
 
     private void assignRole(AppUser user, RoleName roleName) {
@@ -126,32 +183,39 @@ public class AuthService {
         userRoleRepository.save(UserRole.builder().user(user).role(role).status(RecordStatus.ACTIVE).build());
     }
 
-    private AuthResponse issueTokens(Integer userId) {
-        AppUserDetails details = userDetailsService.loadUserById(userId);
-        ensureActive(details.getUser());
-        String accessToken = jwtService.createAccessToken(details);
-        String refreshToken = jwtService.createRefreshToken(details);
-        return new AuthResponse(accessToken, refreshToken, "Bearer", jwtService.getAccessTokenSeconds(), summary(details));
-    }
-
-    private AuthResponse.UserSummary summary(AppUserDetails details) {
-        AppUser user = details.getUser();
-        return new AuthResponse.UserSummary(user.getId(), user.getEmail(), user.getFullName(), user.getPhone(), details.getRoleNames(), details.getGarageIds());
-    }
-
     private void ensureActive(AppUser user) {
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new ApiException(HttpStatus.FORBIDDEN, "User is not active");
         }
     }
 
-    private String generateOtp() {
-        if (mockOtp != null && !mockOtp.isBlank()) {
-            return mockOtp;
+    private void ensureActiveForLogin(AppUser user) {
+        if (user.getStatus() == UserStatus.PENDING_VERIFY) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "Account verification required");
         }
-        return String.format("%06d", OTP_RANDOM.nextInt(1_000_000));
+        ensureActive(user);
     }
 
-    private record OtpChallenge(String code, OffsetDateTime expiresAt) {
+    private java.util.Optional<AppUser> findUserByIdentifier(String rawIdentifier) {
+        if (!StringUtils.hasText(rawIdentifier)) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+        }
+        String identifier = rawIdentifier.trim();
+        if (identifier.contains("@")) {
+            return appUserRepository.findByEmailIgnoreCase(identifier.toLowerCase(Locale.ROOT));
+        }
+        return appUserRepository.findByPhone(identifier);
+    }
+
+    private void recordFailedLogin(AppUser user, OffsetDateTime now) {
+        int failedCount = user.getFailedLoginCount() == null ? 1 : user.getFailedLoginCount() + 1;
+        user.setFailedLoginCount(failedCount);
+        if (failedCount >= loginMaxFailedAttempts) {
+            user.setLockedUntil(now.plusMinutes(loginLockMinutes));
+        }
+    }
+
+    private String normalizeEmail(String email) {
+        return email.trim().toLowerCase(Locale.ROOT);
     }
 }

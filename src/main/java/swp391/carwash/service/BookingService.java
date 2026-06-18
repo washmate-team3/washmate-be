@@ -1,16 +1,22 @@
 package swp391.carwash.service;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.dto.BookingCreateRequest;
 import swp391.carwash.dto.BookingResponse;
+import swp391.carwash.dto.BookingUpdateRequest;
 import swp391.carwash.entity.*;
 import swp391.carwash.enums.*;
 import swp391.carwash.repository.*;
@@ -23,8 +29,7 @@ public class BookingService {
             BookingStatus.PENDING,
             BookingStatus.CONFIRMED,
             BookingStatus.CHECKED_IN,
-            BookingStatus.WASHING
-    );
+            BookingStatus.WASHING);
 
     private final AppUserRepository appUserRepository;
     private final BookingRepository bookingRepository;
@@ -35,6 +40,7 @@ public class BookingService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final ServicePackageRepository servicePackageRepository;
     private final VehicleRepository vehicleRepository;
+    private final LoyaltyService loyaltyService;
 
     @Transactional
     public BookingResponse createBooking(BookingCreateRequest request, AppUserDetails principal) {
@@ -77,13 +83,14 @@ public class BookingService {
                 .build());
         bookingRepository.flush();
 
-        Payment payment = paymentRepository.findByBookingId(booking.getId()).orElseGet(() -> paymentRepository.save(Payment.builder()
-                .booking(booking)
-                .garage(garage)
-                .amount(finalAmount)
-                .method(request.paymentMethod() == null ? PaymentMethod.CASH : request.paymentMethod())
-                .status(PaymentStatus.PENDING)
-                .build()));
+        Payment payment = paymentRepository.findByBookingId(booking.getId())
+                .orElseGet(() -> paymentRepository.save(Payment.builder()
+                        .booking(booking)
+                        .garage(garage)
+                        .amount(finalAmount)
+                        .method(request.paymentMethod() == null ? PaymentMethod.CASH : request.paymentMethod())
+                        .status(PaymentStatus.PENDING)
+                        .build()));
         if (request.paymentMethod() != null && payment.getMethod() != request.paymentMethod()) {
             payment.setMethod(request.paymentMethod());
             payment.setUpdatedAt(OffsetDateTime.now());
@@ -95,12 +102,138 @@ public class BookingService {
     @Transactional(readOnly = true)
     public List<BookingResponse> getMyBookings(AppUserDetails principal) {
         requireCustomer(principal);
-        return bookingRepository.findByUserIdOrderByCreatedAtDesc(principal.getId()).stream()
+        List<Booking> bookings = bookingRepository.findByUserIdOrderByCreatedAtDesc(principal.getId());
+        if (bookings.isEmpty()) {
+            return List.of();
+        }
+
+        List<Integer> bookingIds = bookings.stream().map(Booking::getId).toList();
+
+        Map<Integer, Payment> paymentMap = paymentRepository.findByBookingIdIn(bookingIds).stream()
+                .collect(Collectors.toMap(p -> p.getBooking().getId(), p -> p, (p1, p2) -> p1));
+
+        Map<Integer, Invoice> invoiceMap = invoiceRepository.findByBookingIdIn(bookingIds).stream()
+                .collect(Collectors.toMap(i -> i.getBooking().getId(), i -> i, (i1, i2) -> i1));
+
+        return bookings.stream()
                 .map(booking -> BookingResponse.from(
                         booking,
-                        paymentRepository.findByBookingId(booking.getId()).orElse(null),
-                        invoiceRepository.findByBookingId(booking.getId()).orElse(null)))
+                        paymentMap.get(booking.getId()),
+                        invoiceMap.get(booking.getId())))
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Page<BookingResponse> getBookings(BookingStatus status, Integer garageId, LocalDate fromDate, LocalDate toDate, Pageable pageable, AppUserDetails principal) {
+        List<Integer> garageIds = null;
+        List<String> roles = principal.getRoleNames();
+        if (!roles.contains("ADMIN") && !roles.contains("OWNER")) {
+            garageIds = principal.getGarageIds();
+            if (garageIds.isEmpty()) {
+                return Page.empty(pageable);
+            }
+        }
+        
+        Page<Booking> bookingPage = bookingRepository.findBookingsWithFilters(status, garageId, fromDate, toDate, garageIds, pageable);
+        if (bookingPage.isEmpty()) {
+            return Page.empty(pageable);
+        }
+
+        List<Integer> bookingIds = bookingPage.getContent().stream().map(Booking::getId).toList();
+
+        Map<Integer, Payment> paymentMap = paymentRepository.findByBookingIdIn(bookingIds).stream()
+                .collect(Collectors.toMap(p -> p.getBooking().getId(), p -> p, (p1, p2) -> p1));
+
+        Map<Integer, Invoice> invoiceMap = invoiceRepository.findByBookingIdIn(bookingIds).stream()
+                .collect(Collectors.toMap(i -> i.getBooking().getId(), i -> i, (i1, i2) -> i1));
+
+        return bookingPage.map(booking -> BookingResponse.from(
+                booking,
+                paymentMap.get(booking.getId()),
+                invoiceMap.get(booking.getId())));
+    }
+
+    @Transactional
+    public BookingResponse updateBooking(Integer bookingId, BookingUpdateRequest request, AppUserDetails principal) {
+        Booking booking = findDetailedBooking(bookingId);
+        
+        boolean isOwner = booking.getUser().getId().equals(principal.getId());
+        boolean isStaff = canOperateGarage(booking, principal);
+        if (!isOwner && !isStaff) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "You cannot update this booking");
+        }
+        
+        if (!isOwner && isStaff && !booking.getGarage().getId().equals(request.garageId())) {
+            List<String> roles = principal.getRoleNames();
+            if (!roles.contains("ADMIN") && !roles.contains("OWNER")) {
+                if (!principal.getGarageIds().contains(request.garageId())) {
+                    throw new ApiException(HttpStatus.FORBIDDEN, "You cannot transfer booking to a garage you don't manage");
+                }
+            }
+        }
+
+        if (booking.getStatus() != BookingStatus.PENDING && booking.getStatus() != BookingStatus.CONFIRMED) {
+            throw new ApiException(HttpStatus.CONFLICT, "Only PENDING or CONFIRMED booking can be updated");
+        }
+
+        Payment payment = paymentRepository.findByBookingId(bookingId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Payment not found"));
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new ApiException(HttpStatus.CONFLICT, "Cannot update booking because payment is not PENDING");
+        }
+
+        Garage newGarage = booking.getGarage().getId().equals(request.garageId()) ? booking.getGarage() : 
+                garageRepository.findById(request.garageId()).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Garage not found"));
+        BookingSlot newSlot = booking.getSlot().getId().equals(request.slotId()) ? booking.getSlot() :
+                bookingSlotRepository.findByIdForUpdate(request.slotId()).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Booking slot not found"));
+        ServicePackage newService = booking.getService().getId().equals(request.serviceId()) ? booking.getService() :
+                servicePackageRepository.findById(request.serviceId()).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Service package not found"));
+        Vehicle newVehicle = booking.getVehicle().getId().equals(request.vehicleId()) ? booking.getVehicle() :
+                vehicleRepository.findById(request.vehicleId()).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Vehicle not found"));
+
+        if (newGarage.getStatus() != GarageStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "New garage is not active");
+        }
+        if (newSlot.getStatus() != RecordStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "New slot is not active");
+        }
+        if (newService.getStatus() != RecordStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "New service is not active");
+        }
+        if (newVehicle.getStatus() != RecordStatus.ACTIVE) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "New vehicle is not active");
+        }
+        if (!newSlot.getGarage().getId().equals(newGarage.getId())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Slot does not belong to garage");
+        }
+        if (!newService.getGarage().getId().equals(newGarage.getId())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Service does not belong to garage");
+        }
+        if (!newVehicle.getUser().getId().equals(booking.getUser().getId())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Vehicle does not belong to the customer");
+        }
+
+        long activeBookings = bookingRepository.countActiveBookingsForUpdate(newSlot.getId(), newGarage.getId(), request.bookingDate(), CAPACITY_BLOCKING_STATUSES, booking.getId());
+        if (activeBookings >= newSlot.getMaxCapacity()) {
+            throw new ApiException(HttpStatus.CONFLICT, "New booking slot is full");
+        }
+
+        booking.setGarage(newGarage);
+        booking.setSlot(newSlot);
+        booking.setService(newService);
+        booking.setVehicle(newVehicle);
+        booking.setBookingDate(request.bookingDate());
+
+        BigDecimal newTotal = newService.getPrice();
+        BigDecimal newFinal = newTotal.subtract(booking.getDiscountAmount());
+        booking.setTotalAmount(newTotal);
+        booking.setFinalAmount(newFinal);
+        
+        payment.setAmount(newFinal);
+        payment.setGarage(newGarage);
+        payment.setUpdatedAt(OffsetDateTime.now());
+
+        return BookingResponse.from(booking, payment, invoiceRepository.findByBookingId(bookingId).orElse(null));
     }
 
     @Transactional(readOnly = true)
@@ -110,6 +243,16 @@ public class BookingService {
         Payment payment = paymentRepository.findByBookingId(bookingId).orElse(null);
         Invoice invoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
         return BookingResponse.from(booking, payment, invoice);
+    }
+
+    @Transactional
+    public BookingResponse confirmBooking(Integer bookingId, AppUserDetails principal) {
+        Booking booking = findDetailedBooking(bookingId);
+        authorizeGarageOperation(booking, principal);
+        requireStatus(booking, BookingStatus.PENDING, "Only PENDING booking can be confirmed");
+        booking.setStatus(BookingStatus.CONFIRMED);
+        booking.setConfirmedAt(OffsetDateTime.now());
+        return responseWithPaymentAndInvoice(booking);
     }
 
     @Transactional
@@ -144,6 +287,9 @@ public class BookingService {
         }
         booking.setStatus(BookingStatus.COMPLETED);
         booking.setCompletedTime(OffsetDateTime.now());
+
+        loyaltyService.accruePoints(booking);
+
         Invoice invoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
         return BookingResponse.from(booking, payment, invoice);
     }
@@ -186,7 +332,8 @@ public class BookingService {
         return responseWithPaymentAndInvoice(booking);
     }
 
-    private void validateBookingInputs(BookingCreateRequest request, AppUser customer, Garage garage, BookingSlot slot, ServicePackage service, Vehicle vehicle) {
+    private void validateBookingInputs(BookingCreateRequest request, AppUser customer, Garage garage, BookingSlot slot,
+            ServicePackage service, Vehicle vehicle) {
         if (garage.getStatus() != GarageStatus.ACTIVE) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Garage is not active");
         }
@@ -208,7 +355,8 @@ public class BookingService {
         if (!vehicle.getUser().getId().equals(customer.getId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Vehicle does not belong to current user");
         }
-        long activeBookings = bookingRepository.countActiveBookings(slot.getId(), garage.getId(), request.bookingDate(), CAPACITY_BLOCKING_STATUSES);
+        long activeBookings = bookingRepository.countActiveBookings(slot.getId(), garage.getId(), request.bookingDate(),
+                CAPACITY_BLOCKING_STATUSES);
         if (activeBookings >= slot.getMaxCapacity()) {
             throw new ApiException(HttpStatus.CONFLICT, "Booking slot is full");
         }
@@ -270,7 +418,8 @@ public class BookingService {
         return "BKG-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
     }
 
-    private void recordPaymentTransaction(Payment payment, PaymentTransactionStatus status, String provider, String providerTxnId) {
+    private void recordPaymentTransaction(Payment payment, PaymentTransactionStatus status, String provider,
+            String providerTxnId) {
         paymentTransactionRepository.save(PaymentTransaction.builder()
                 .payment(payment)
                 .provider(provider)

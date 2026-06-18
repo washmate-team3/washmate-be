@@ -1,6 +1,7 @@
 package swp391.carwash.repository;
 
 import java.util.Optional;
+import java.util.List;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -15,4 +16,6 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
     Optional<Invoice> findDetailedById(Integer id);
 
     boolean existsByBookingId(Integer bookingId);
+
+    List<Invoice> findByBookingIdIn(List<Integer> bookingIds);
 }

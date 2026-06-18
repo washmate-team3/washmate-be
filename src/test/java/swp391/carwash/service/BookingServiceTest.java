@@ -62,6 +62,9 @@ class BookingServiceTest {
     @Mock
     private VehicleRepository vehicleRepository;
     @Mock
+    private LoyaltyService loyaltyService;
+
+    @Mock
     private AppUserDetails principal;
 
     private BookingService bookingService;
@@ -77,7 +80,8 @@ class BookingServiceTest {
                 paymentRepository,
                 paymentTransactionRepository,
                 servicePackageRepository,
-                vehicleRepository
+                vehicleRepository,
+                loyaltyService
         );
     }
 
@@ -178,8 +182,8 @@ class BookingServiceTest {
         when(principal.getRoleNames()).thenReturn(List.of("CUSTOMER"));
         when(principal.getId()).thenReturn(10);
         when(bookingRepository.findByUserIdOrderByCreatedAtDesc(10)).thenReturn(List.of(booking));
-        when(paymentRepository.findByBookingId(100)).thenReturn(Optional.of(payment));
-        when(invoiceRepository.findByBookingId(100)).thenReturn(Optional.empty());
+        when(paymentRepository.findByBookingIdIn(List.of(100))).thenReturn(List.of(payment));
+        when(invoiceRepository.findByBookingIdIn(List.of(100))).thenReturn(List.of());
 
         List<BookingResponse> response = bookingService.getMyBookings(principal);
 
