@@ -1,0 +1,57 @@
+package swp391.carwash.controller;
+
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import swp391.carwash.dto.request.ServicePackageRequest.CreateServicePackageRequest;
+import swp391.carwash.dto.request.ServicePackageRequest.UpdateServicePackageRequest;
+import swp391.carwash.dto.respone.ServicePackage.ServicePackageResponse;
+import swp391.carwash.service.ServicePackageService;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/services")
+@CrossOrigin(origins = "*")
+@RequiredArgsConstructor
+@Tag(name = "Service Package Management", description = "APIs quản lý danh mục gói dịch vụ rửa xe của các garage")
+public class ServicePackageController {
+
+    private final ServicePackageService servicePackageService;
+
+    @PostMapping
+    @Operation(summary = "Tạo gói dịch vụ mới")
+    public ResponseEntity<ServicePackageResponse> createService(@RequestBody CreateServicePackageRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(servicePackageService.createService(request));
+    }
+
+    @GetMapping("/garage/{garageId}")
+    @Operation(summary = "Lấy toàn bộ gói dịch vụ của một Garage cụ thể")
+    public ResponseEntity<List<ServicePackageResponse>> getServicesByGarageId(@PathVariable Long garageId) {
+        return ResponseEntity.ok(servicePackageService.getServicesByGarageId(garageId));
+    }
+
+    @GetMapping("/{id}")
+    @Operation(summary = "Lấy thông tin chi tiết của 1 gói dịch vụ")
+    public ResponseEntity<ServicePackageResponse> getServiceById(@PathVariable Long id) {
+        return ResponseEntity.ok(servicePackageService.getServiceById(id));
+    }
+
+    @PutMapping("/{id}")
+    @Operation(summary = "Chỉnh sửa thông tin gói dịch vụ")
+    public ResponseEntity<ServicePackageResponse> updateService(
+            @PathVariable Long id,
+            @RequestBody UpdateServicePackageRequest request) {
+        return ResponseEntity.ok(servicePackageService.updateService(id, request));
+    }
+
+    @DeleteMapping("/{id}")
+    @Operation(summary = "Xóa gói dịch vụ")
+    public ResponseEntity<Void> deleteService(@PathVariable Long id) {
+        servicePackageService.deleteService(id);
+        return ResponseEntity.noContent().build();
+    }
+}
