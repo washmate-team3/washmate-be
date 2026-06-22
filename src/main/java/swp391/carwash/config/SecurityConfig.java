@@ -39,6 +39,8 @@ public class SecurityConfig {
                         // Mở hoàn toàn cụm API v1 để chạy mượt mà trên Postman không bị chặn
                         .requestMatchers("/api/v1/**").permitAll()
 
+                        .requestMatchers("/test/mail").permitAll()
+
                         // Tất cả các request ngoài luồng trên thì mới bắt nhập token
                         .anyRequest().authenticated()
                 );
