@@ -36,12 +36,15 @@
         private String type; // BOOKING_CONFIRMATION, BOOKING_REMINDER, LOYALTY_UPDATE, PROMOTION, SYSTEM
 
         @Column(name = "channel", nullable = false)
+        @Builder.Default
         private String channel = "IN_APP"; // IN_APP, EMAIL, SMS, ZALO
 
         @Column(name = "status", nullable = false)
+        @Builder.Default
         private String status = "PENDING"; // PENDING, SENT, FAILED, READ
 
         @Column(name = "is_read", nullable = false)
+        @Builder.Default
         private boolean isRead = false;
 
         @CreationTimestamp

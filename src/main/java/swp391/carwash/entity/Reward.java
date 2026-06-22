@@ -31,6 +31,7 @@ public class Reward {
     private Integer pointsRequired;
 
     @Column(nullable = false)
+    @Builder.Default
     private Integer stock = 0;
 
     @Column(name = "status") // nếu tên cột database khác tên biến

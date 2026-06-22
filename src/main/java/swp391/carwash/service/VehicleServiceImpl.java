@@ -46,7 +46,6 @@ public class VehicleServiceImpl implements VehicleService{
                 .model(request.getModel())
                 .color(request.getColor())
                 .status(swp391.carwash.enums.RecordStatus.ACTIVE) // Mặc định xe mới tạo sẽ ở trạng thái hoạt động
-                .createdAt(OffsetDateTime.now()) // Thời gian tạo là hiện tại
                 .build();
 
         Vehicle savedVehicle = vehicleRepository.save(vehicle);

@@ -10,6 +10,8 @@ import swp391.carwash.dto.respone.ServicePackage.ServicePackageResponse;
 import swp391.carwash.entity.ServicePackage;
 import swp391.carwash.repository.ServicePackageRepository;
 import swp391.carwash.service.ServicePackageService;
+import swp391.carwash.repository.GarageRepository;
+import swp391.carwash.entity.Garage;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -19,19 +21,22 @@ import java.util.List;
 public class ServicePackageServiceImpl implements ServicePackageService {
 
     private final ServicePackageRepository servicePackageRepository;
+    private final GarageRepository garageRepository;
 
     @Override
     @Transactional
     public ServicePackageResponse createService(CreateServicePackageRequest request) {
+        Garage garage = garageRepository.findById(request.getGarageId())
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy Garage với ID: " + request.getGarageId()));
+
         // 1. Tạo Entity từ Request DTO thông qua Builder pattern
         ServicePackage servicePackage = ServicePackage.builder()
-                .id(request.getGarageId())
+                .garage(garage)
                 .name(request.getName())
                 .description(request.getDescription())
                 .price(request.getPrice())
                 .duration(request.getDurationMinutes())
                 .status(swp391.carwash.enums.RecordStatus.ACTIVE)
-                .createdAt(OffsetDateTime.now())
                 .build();
 
         // 2. Lưu thực thể xuống Database
@@ -70,7 +75,7 @@ public class ServicePackageServiceImpl implements ServicePackageService {
         servicePackage.setPrice(request.getPrice());
         servicePackage.setDuration(request.getDurationMinutes());
         servicePackage.setStatus(swp391.carwash.enums.RecordStatus.valueOf(request.getStatus()));
-        servicePackage.setUpdatedAt(OffsetDateTime.now());
+
 
         ServicePackage updated = servicePackageRepository.save(servicePackage);
         return mapToResponse(updated);
