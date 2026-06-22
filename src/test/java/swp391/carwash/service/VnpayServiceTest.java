@@ -259,6 +259,33 @@ class VnpayServiceTest {
     }
 
     @Test
+    void paymentNotFoundReturns01() {
+        Map<String, String> callback = signedCallback("5000000", "00", "00");
+        when(paymentTransactionRepository.findByProviderAndMerchantTxnRef("VNPAY", "P200TEST"))
+                .thenReturn(Optional.empty());
+
+        VnpayIpnResponse response = vnpayService.handleIpn(callback);
+
+        assertEquals("01", response.rspCode());
+    }
+
+    @Test
+    void duplicateProviderTxnIdReturns02() {
+        Map<String, String> callback = signedCallback("5000000", "00", "00");
+        when(paymentTransactionRepository.findByProviderAndMerchantTxnRef("VNPAY", "P200TEST"))
+                .thenReturn(Optional.of(attempt));
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+        PaymentTransaction duplicate = PaymentTransaction.builder().id(999).build();
+        when(paymentTransactionRepository.findByProviderAndProviderTxnId("VNPAY", "900001"))
+                .thenReturn(Optional.of(duplicate));
+
+        VnpayIpnResponse response = vnpayService.handleIpn(callback);
+
+        assertEquals("02", response.rspCode());
+        assertEquals("Order already confirmed", response.message());
+    }
+
+    @Test
     void returnUrlRedirectsWithoutMutatingPayment() {
         Map<String, String> callback = signedCallback("5000000", "00", "00");
         when(paymentTransactionRepository.findByProviderAndMerchantTxnRef("VNPAY", "P200TEST"))

@@ -61,7 +61,7 @@ public class NotificationServiceImpl implements NotificationService {
     @Override
     @Transactional
     public void markAllAsRead(Integer userId) {
-        notificationRepository.markAllAsReadByUserId(userId);
+        notificationRepository.markAllAsReadByUserId(userId, OffsetDateTime.now());
     }
 
     // Mapper thủ công giúp tối ưu hiệu năng

@@ -131,4 +131,15 @@ class TokenServiceTest {
 
         assertNotNull(current.getRevokedAt());
     }
+
+    @Test
+    void issueTokensRejectsBlockedUser() {
+        user.setStatus(UserStatus.BLOCKED);
+        when(userDetailsService.loadUserById(10)).thenReturn(userDetails);
+        when(userDetails.getUser()).thenReturn(user);
+
+        ApiException exception = assertThrows(ApiException.class, () -> tokenService.issueTokens(10));
+
+        assertEquals(HttpStatus.FORBIDDEN, exception.getStatus());
+    }
 }

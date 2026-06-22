@@ -198,4 +198,71 @@ class PaymentServiceTest {
         assertEquals(100, response.bookingId());
         assertEquals(PaymentStatus.PENDING.name(), response.status());
     }
+
+    @Test
+    void confirmPaymentRejectsWhenBookingNotPending() {
+        booking.setStatus(BookingStatus.CONFIRMED);
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+        when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> paymentService.confirmPayment(200, new PaymentConfirmRequest(PaymentMethod.CASH, "MANUAL", "TXN-1"), principal));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("Only PENDING booking can be confirmed", exception.getMessage());
+        verify(paymentTransactionRepository, never()).save(any(PaymentTransaction.class));
+    }
+
+    @Test
+    void confirmPaymentRejectsWhenPaymentNotPending() {
+        payment.setStatus(PaymentStatus.PAID);
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+        when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> paymentService.confirmPayment(200, new PaymentConfirmRequest(PaymentMethod.CASH, "MANUAL", "TXN-1"), principal));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("Only PENDING payment can be confirmed", exception.getMessage());
+        verify(paymentTransactionRepository, never()).save(any(PaymentTransaction.class));
+    }
+
+    @Test
+    void refundPaymentRejectsWhenNotPaid() {
+        payment.setStatus(PaymentStatus.PENDING);
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+        when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> paymentService.refundPayment(200, new PaymentActionRequest("MANUAL", "REF-1", "Customer requested refund"), principal));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("Only PAID payment can be refunded", exception.getMessage());
+    }
+
+    @Test
+    void refundPaymentRejectsVnpay() {
+        payment.setMethod(PaymentMethod.VNPAY);
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+        when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> paymentService.refundPayment(200, new PaymentActionRequest("VNPAY", "REF-1", "Refund request"), principal));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("VNPAY refund API is not implemented", exception.getMessage());
+    }
+
+    @Test
+    void confirmPaymentRollsBackOnError() {
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+        when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenThrow(new RuntimeException("Database error"));
+
+        RuntimeException exception = assertThrows(RuntimeException.class,
+                () -> paymentService.confirmPayment(200, new PaymentConfirmRequest(PaymentMethod.CASH, "MANUAL", "TXN-1"), principal));
+
+        assertEquals("Database error", exception.getMessage());
+        verify(invoiceRepository, never()).save(any());
+    }
 }

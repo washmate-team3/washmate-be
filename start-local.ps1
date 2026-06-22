@@ -1,28 +1,34 @@
 # ============================================================
-# WashMate Backend - Script khởi động local với Supabase
-# Cách dùng: .\start-local.ps1
+# WashMate Backend - start against Supabase using environment
+# variables supplied by the developer or secret manager.
 # ============================================================
 
-# Dừng process đang dùng port 8080 nếu có
+$requiredVariables = @(
+    'DB_URL',
+    'DB_USERNAME',
+    'DB_PASSWORD',
+    'JWT_SECRET',
+    'CORS_ALLOWED_ORIGIN_PATTERNS'
+)
+
+$missingVariables = $requiredVariables | Where-Object {
+    [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($_))
+}
+
+if ($missingVariables.Count -gt 0) {
+    throw "Missing required environment variables: $($missingVariables -join ', ')"
+}
+
 $existing = Get-NetTCPConnection -LocalPort 8080 -State Listen -ErrorAction SilentlyContinue
 if ($existing) {
-    Write-Host ">>> Port 8080 dang duoc su dung, dang dong..." -ForegroundColor Yellow
+    Write-Host ">>> Port 8080 is in use; stopping the current listener..." -ForegroundColor Yellow
     $existing | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force }
     Start-Sleep -Seconds 1
 }
 
-# Set bien moi truong
-$env:DB_URL      = 'jdbc:postgresql://aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0'
-$env:DB_USERNAME = 'postgres.xobkqehriftlivzczqki'
-$env:DB_PASSWORD = 'MiniProjectAutoWash'
-$env:JWT_SECRET  = 'washmate-secret-at-least-32-characters-long'
-$env:OTP_MOCK_CODE         = ''
-$env:OTP_EXPOSE_MOCK_CODE  = 'false'
-$env:DOCS_ENABLED          = 'true'
-
-Write-Host ">>> Khoi dong WashMate Backend (profile: supabase)..." -ForegroundColor Cyan
+Write-Host ">>> Starting WashMate Backend (profile: supabase)..." -ForegroundColor Cyan
 Write-Host ">>> Swagger UI: http://localhost:8080/swagger-ui.html" -ForegroundColor Green
-Write-Host ">>> Nhan Ctrl+C de dung ung dung" -ForegroundColor Gray
+Write-Host ">>> Press Ctrl+C to stop" -ForegroundColor Gray
 Write-Host ""
 
 .\mvnw.cmd spring-boot:run "-Dspring-boot.run.profiles=supabase"

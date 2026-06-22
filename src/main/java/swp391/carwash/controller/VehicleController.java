@@ -16,7 +16,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/vehicles")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 @Tag(name = "Vehicle Management", description = "APIs quản lý thông tin phương tiện/xe của khách hàng")
 

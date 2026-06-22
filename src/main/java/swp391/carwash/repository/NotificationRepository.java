@@ -24,7 +24,7 @@ public interface NotificationRepository extends JpaRepository<Notification, Inte
 
     // Update nhanh toàn bộ trạng thái chưa đọc thành đã đọc của 1 User
     @Modifying
-    @Query("UPDATE Notification n SET n.isRead = true, n.status = 'READ', n.readAt = CURRENT_TIMESTAMP " +
+    @Query("UPDATE Notification n SET n.isRead = true, n.status = 'READ', n.readAt = :now " +
             "WHERE n.userId = :userId AND n.isRead = false")
-    void markAllAsReadByUserId(@Param("userId") Integer userId);
+    void markAllAsReadByUserId(@Param("userId") Integer userId, @Param("now") OffsetDateTime now);
 }

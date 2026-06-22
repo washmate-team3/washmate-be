@@ -20,7 +20,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/garages")
-@CrossOrigin(origins = "*")
 @Tag(name = "Garage Management", description = "APIs quản lý danh sách và thông tin các chi nhánh Garage rửa xe")
 public class GarageController {
 

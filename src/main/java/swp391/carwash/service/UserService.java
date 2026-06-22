@@ -12,7 +12,9 @@ import swp391.carwash.dto.UpdateProfileRequest;
 import swp391.carwash.dto.UpdateUserStatusRequest;
 import swp391.carwash.entity.AppUser;
 import swp391.carwash.repository.AppUserRepository;
+import swp391.carwash.repository.RefreshTokenRepository;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -20,6 +22,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class UserService {
     private final AppUserRepository appUserRepository;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     @Transactional
     public MeResponse updateProfile(Integer userId, UpdateProfileRequest request) {
@@ -41,6 +44,9 @@ public class UserService {
 
         user.setStatus(request.status());
         appUserRepository.save(user);
+        if (request.status() != swp391.carwash.enums.UserStatus.ACTIVE) {
+            refreshTokenRepository.revokeAllActiveByUserId(userId, OffsetDateTime.now());
+        }
     }
 
     @Transactional(readOnly = true)

@@ -15,7 +15,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/v1/services")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
 @Tag(name = "Service Package Management", description = "APIs quản lý danh mục gói dịch vụ rửa xe của các garage")
 public class ServicePackageController {

@@ -46,6 +46,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             Integer userId = jwtService.extractUserId(header.substring(7), "access");
             AppUserDetails userDetails = userDetailsService.loadUserById(userId);
+            if (!userDetails.isEnabled() || !userDetails.isAccountNonLocked()) {
+                throw new ApiException(HttpStatus.UNAUTHORIZED, "Account is inactive or blocked");
+            }
             UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                     userDetails,
                     null,

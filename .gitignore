@@ -1,31 +1,37 @@
-<<<<<<< HEAD
-=======
 HELP.md
+
+### Maven / Java ###
 target/
-.mvn/wrapper/maven-wrapper.jar
+!.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+*.class
+*.log
+*.ctxt
+*.jar
+*.war
+*.ear
 
->>>>>>> origin/nghia
-### STS ###
+### Generated ###
+generated/
+/src/generated/prisma
+
+### IDEs ###
 .apt_generated
 .classpath
 .factorypath
 .project
-.settings
+.settings/
 .springBeans
 .sts4-cache
-
-### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
-<<<<<<< HEAD
+.vscode/
 out/
-=======
 
-### NetBeans ###
+### NetBeans / Gradle ###
 /nbproject/private/
 /nbbuild/
 /dist/
@@ -34,45 +40,16 @@ out/
 build/
 !**/src/main/**/build/
 !**/src/test/**/build/
->>>>>>> origin/nghia
 
-### VS Code ###
-.vscode/
-
-<<<<<<< HEAD
-### Maven ###
-target/
-!.mvn/wrapper/maven-wrapper.jar
-
-### Java ###
-*.class
-*.log
-*.ctxt
-
-### Package Files ###
-*.jar
-*.war
-*.ear
-
-### OS Files ###
-.DS_Store
-Thumbs.db
-
-### Application Config ###
+### Environment and local configuration ###
+.env
+.env.*
+!.env.example
 application-local.yml
 application-dev.yml
 application-prod.yml
 
-### Environment ###
-.env
-.env.*
-
-### Logs ###
+### Logs / OS files ###
 logs/
-*.log
-
-### Generated ###
-generated/
-=======
-/src/generated/prisma
->>>>>>> origin/nghia
+.DS_Store
+Thumbs.db
