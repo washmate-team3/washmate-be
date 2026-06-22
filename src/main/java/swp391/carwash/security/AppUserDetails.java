@@ -67,4 +67,14 @@ public class AppUserDetails implements UserDetails {
     public boolean isEnabled() {
         return user.getStatus() == UserStatus.ACTIVE;
     }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
 }

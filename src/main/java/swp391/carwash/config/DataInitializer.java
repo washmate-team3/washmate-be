@@ -20,11 +20,14 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        Arrays.stream(RoleName.values()).forEach(roleName -> roleRepository.findByRoleName(roleName)
-                .orElseGet(() -> roleRepository.save(Role.builder()
+        Arrays.stream(RoleName.values()).forEach(roleName -> {
+            if (roleRepository.findByRoleName(roleName).isEmpty()) {
+                roleRepository.save(Role.builder()
                         .roleName(roleName)
                         .description(roleName.name() + " role")
                         .status(RecordStatus.ACTIVE)
-                        .build())));
+                        .build());
+            }
+        });
     }
 }

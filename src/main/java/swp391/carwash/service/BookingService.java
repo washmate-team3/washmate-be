@@ -196,16 +196,16 @@ public class BookingService {
         Vehicle newVehicle = booking.getVehicle().getId().equals(request.vehicleId()) ? booking.getVehicle() :
                 vehicleRepository.findById(request.vehicleId()).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Vehicle not found"));
 
-        if (newGarage.getStatus() != GarageStatus.ACTIVE) {
+        if (!"ACTIVE".equals(newGarage.getStatus())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "New garage is not active");
         }
-        if (newSlot.getStatus() != RecordStatus.ACTIVE) {
+        if (!"ACTIVE".equals(newSlot.getStatus())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "New slot is not active");
         }
-        if (newService.getStatus() != RecordStatus.ACTIVE) {
+        if (!"ACTIVE".equals(newService.getStatus())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "New service is not active");
         }
-        if (newVehicle.getStatus() != RecordStatus.ACTIVE) {
+        if (!"ACTIVE".equals(newVehicle.getStatus())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "New vehicle is not active");
         }
         if (!newSlot.getGarage().getId().equals(newGarage.getId())) {
@@ -339,16 +339,16 @@ public class BookingService {
 
     private void validateBookingInputs(BookingCreateRequest request, AppUser customer, Garage garage, BookingSlot slot,
             ServicePackage service, Vehicle vehicle) {
-        if (garage.getStatus() != GarageStatus.ACTIVE) {
+        if (!"ACTIVE".equals(garage.getStatus())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Garage is not active");
         }
-        if (slot.getStatus() != RecordStatus.ACTIVE) {
+        if (!"ACTIVE".equals(slot.getStatus())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Booking slot is not active");
         }
-        if (service.getStatus() != RecordStatus.ACTIVE) {
+        if (!"ACTIVE".equals(service.getStatus())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Service package is not active");
         }
-        if (vehicle.getStatus() != RecordStatus.ACTIVE) {
+        if (!"ACTIVE".equals(vehicle.getStatus())) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Vehicle is not active");
         }
         if (!slot.getGarage().getId().equals(garage.getId())) {

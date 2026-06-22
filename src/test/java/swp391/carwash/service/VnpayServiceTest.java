@@ -47,7 +47,7 @@ import swp391.carwash.repository.InvoiceRepository;
 import swp391.carwash.repository.PaymentRepository;
 import swp391.carwash.repository.PaymentTransactionRepository;
 import swp391.carwash.security.AppUserDetails;
-import tools.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @ExtendWith(MockitoExtension.class)
 class VnpayServiceTest {

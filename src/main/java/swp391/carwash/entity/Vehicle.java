@@ -6,7 +6,7 @@ import swp391.carwash.common.domain.AuditableEntity;
 import swp391.carwash.enums.RecordStatus;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-@Entity @Table(name = "vehicle")
+@Entity @Table(name = "vehicle", schema = "public")
 public class Vehicle extends AuditableEntity {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "vehicle_id")

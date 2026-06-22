@@ -6,7 +6,7 @@ import lombok.*;
 import swp391.carwash.enums.RecordStatus;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-@Entity @Table(name = "booking_slot")
+@Entity @Table(name = "booking_slot", schema = "public")
 public class BookingSlot {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "slot_id")
