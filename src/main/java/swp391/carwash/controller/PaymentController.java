@@ -50,14 +50,6 @@ public class PaymentController {
         return paymentService.confirmPayment(id, request, principal);
     }
 
-    @PostMapping("/api/payments/{id}/customer-confirm")
-    public BookingResponse confirmCustomerPayment(
-            @PathVariable Integer id,
-            @Valid @RequestBody(required = false) PaymentConfirmRequest request,
-            @AuthenticationPrincipal AppUserDetails principal) {
-        return paymentService.confirmCustomerPayment(id, request, principal);
-    }
-
     @PostMapping("/api/payments/{id}/fail")
     public BookingResponse failPayment(
             @PathVariable Integer id,

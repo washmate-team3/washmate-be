@@ -144,24 +144,29 @@ CREATE TABLE IF NOT EXISTS payment (
     amount DECIMAL(10,2) NOT NULL CHECK (amount >= 0),
     method VARCHAR(30) NOT NULL DEFAULT 'CASH' CHECK (method IN ('CASH','VNPAY','MOMO','BANK_TRANSFER','CARD')),
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','PAID','FAILED','CANCELLED','REFUNDED')),
+    expires_at TIMESTAMPTZ,
     paid_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ,
     FOREIGN KEY (booking_id, garage_id) REFERENCES booking(booking_id, garage_id)
 );
 CREATE INDEX IF NOT EXISTS idx_payment_booking ON payment(booking_id);
+CREATE INDEX IF NOT EXISTS idx_payment_status_expires_at ON payment(status, expires_at) WHERE expires_at IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS payment_transaction (
     payment_transaction_id SERIAL PRIMARY KEY,
     payment_id INT NOT NULL REFERENCES payment(payment_id),
     provider VARCHAR(50),
+    merchant_txn_ref VARCHAR(100),
     provider_txn_id VARCHAR(255),
     amount DECIMAL(10,2) NOT NULL CHECK (amount >= 0),
     status VARCHAR(30) NOT NULL DEFAULT 'PENDING' CHECK (status IN ('PENDING','SUCCESS','FAILED','CANCELLED','REFUNDED')),
     raw_response JSONB,
+    expires_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS uq_provider_txn_idempotency ON payment_transaction(provider, provider_txn_id) WHERE provider IS NOT NULL AND provider_txn_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS uq_payment_txn_merchant_ref ON payment_transaction(provider, merchant_txn_ref) WHERE provider IS NOT NULL AND merchant_txn_ref IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS invoice (
     invoice_id SERIAL PRIMARY KEY,

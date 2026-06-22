@@ -25,6 +25,9 @@ public class PaymentTransaction {
     @Column(name = "provider_txn_id")
     private String providerTxnId;
 
+    @Column(name = "merchant_txn_ref", length = 100)
+    private String merchantTxnRef;
+
     @Column(nullable = false, precision = 10, scale = 2)
     private BigDecimal amount;
 
@@ -33,9 +36,12 @@ public class PaymentTransaction {
     @Builder.Default
     private PaymentTransactionStatus status = PaymentTransactionStatus.PENDING;
 
-    @Column(name = "raw_response", insertable = false, updatable = false)
+    @Column(name = "raw_response")
     @JdbcTypeCode(SqlTypes.JSON)
     private String rawResponse;
+
+    @Column(name = "expires_at")
+    private OffsetDateTime expiresAt;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

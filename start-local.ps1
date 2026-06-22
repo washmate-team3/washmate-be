@@ -18,6 +18,7 @@ $env:DB_PASSWORD = 'MiniProjectAutoWash'
 $env:JWT_SECRET  = 'washmate-secret-at-least-32-characters-long'
 $env:OTP_MOCK_CODE         = ''
 $env:OTP_EXPOSE_MOCK_CODE  = 'false'
+$env:DOCS_ENABLED          = 'true'
 
 Write-Host ">>> Khoi dong WashMate Backend (profile: supabase)..." -ForegroundColor Cyan
 Write-Host ">>> Swagger UI: http://localhost:8080/swagger-ui.html" -ForegroundColor Green

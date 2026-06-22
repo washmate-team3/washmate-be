@@ -1,9 +1,7 @@
 package swp391.carwash.service;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -20,6 +18,7 @@ import swp391.carwash.entity.Payment;
 import swp391.carwash.entity.PaymentTransaction;
 import swp391.carwash.enums.BookingStatus;
 import swp391.carwash.enums.InvoiceStatus;
+import swp391.carwash.enums.PaymentMethod;
 import swp391.carwash.enums.PaymentStatus;
 import swp391.carwash.enums.PaymentTransactionStatus;
 import swp391.carwash.repository.BookingRepository;
@@ -36,6 +35,7 @@ public class PaymentService {
     private final PaymentRepository paymentRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final LoyaltyService loyaltyService;
+    private final PaymentSettlementService paymentSettlementService;
 
     @Transactional(readOnly = true)
     public PaymentResponse getPayment(Integer paymentId, AppUserDetails principal) {
@@ -61,18 +61,9 @@ public class PaymentService {
 
     @Transactional
     public BookingResponse confirmPayment(Integer paymentId, PaymentConfirmRequest request, AppUserDetails principal) {
-        Payment payment = findDetailedPayment(paymentId);
+        Payment payment = findDetailedPaymentForUpdate(paymentId);
         Booking booking = findDetailedBooking(payment.getBooking().getId());
         authorizeGarageOperation(booking, principal);
-
-        return confirmPendingPayment(payment, booking, request);
-    }
-
-    @Transactional
-    public BookingResponse confirmCustomerPayment(Integer paymentId, PaymentConfirmRequest request, AppUserDetails principal) {
-        Payment payment = findDetailedPayment(paymentId);
-        Booking booking = findDetailedBooking(payment.getBooking().getId());
-        authorizeCustomerPayment(booking, principal);
 
         return confirmPendingPayment(payment, booking, request);
     }
@@ -87,42 +78,19 @@ public class PaymentService {
         if (payment.getAmount().compareTo(booking.getFinalAmount()) != 0) {
             throw new ApiException(HttpStatus.CONFLICT, "Payment amount does not match booking final amount");
         }
+        PaymentMethod method = request == null || request.method() == null ? payment.getMethod() : request.method();
+        if (payment.getMethod() == PaymentMethod.VNPAY || method == PaymentMethod.VNPAY) {
+            throw new ApiException(HttpStatus.CONFLICT, "VNPAY payment can only be confirmed by a verified IPN");
+        }
 
         String provider = providerOrManual(request == null ? null : request.provider());
         String providerTxnId = request == null ? null : request.providerTxnId();
         ensureProviderTransactionIsNew(provider, providerTxnId);
 
         OffsetDateTime now = OffsetDateTime.now();
-        payment.setStatus(PaymentStatus.PAID);
-        payment.setMethod(request == null || request.method() == null ? payment.getMethod() : request.method());
-        payment.setPaidAt(now);
-        payment.setUpdatedAt(now);
-
-        booking.setStatus(BookingStatus.CONFIRMED);
-        booking.setConfirmedAt(now);
-        paymentRepository.flush();
-
-        recordPaymentTransaction(payment, PaymentTransactionStatus.SUCCESS, provider, providerTxnId);
-        paymentTransactionRepository.flush();
-
-        Invoice invoice = invoiceRepository.findByBookingId(booking.getId()).orElseGet(() -> invoiceRepository.save(Invoice.builder()
-                .invoiceCode(generateInvoiceCode())
-                .booking(booking)
-                .payment(payment)
-                .garage(booking.getGarage())
-                .subtotal(booking.getTotalAmount())
-                .discount(booking.getDiscountAmount())
-                .penaltyTotal(BigDecimal.ZERO)
-                .totalAmount(booking.getFinalAmount())
-                .status(InvoiceStatus.PAID)
-                .issuedAt(now)
-                .paidAt(now)
-                .build()));
-        if (invoice.getPayment() == null) {
-            invoice.setPayment(payment);
-        }
-        invoice.setStatus(InvoiceStatus.PAID);
-        invoice.setPaidAt(invoice.getPaidAt() == null ? now : invoice.getPaidAt());
+        PaymentTransaction transaction = recordPaymentTransaction(
+                payment, PaymentTransactionStatus.SUCCESS, provider, providerTxnId);
+        Invoice invoice = paymentSettlementService.settle(payment, booking, transaction, method, now);
 
         return BookingResponse.from(booking, payment, invoice);
     }
@@ -139,9 +107,13 @@ public class PaymentService {
 
     @Transactional
     public BookingResponse refundPayment(Integer paymentId, PaymentActionRequest request, AppUserDetails principal) {
-        Payment payment = findDetailedPayment(paymentId);
+        Payment payment = findDetailedPaymentForUpdate(paymentId);
         Booking booking = findDetailedBooking(payment.getBooking().getId());
         authorizeGarageOperation(booking, principal);
+
+        if (payment.getMethod() == PaymentMethod.VNPAY) {
+            throw new ApiException(HttpStatus.CONFLICT, "VNPAY refund API is not implemented");
+        }
 
         if (payment.getStatus() != PaymentStatus.PAID) {
             throw new ApiException(HttpStatus.CONFLICT, "Only PAID payment can be refunded");
@@ -177,9 +149,13 @@ public class PaymentService {
             PaymentStatus paymentStatus,
             PaymentTransactionStatus transactionStatus,
             String invalidStatusMessage) {
-        Payment payment = findDetailedPayment(paymentId);
+        Payment payment = findDetailedPaymentForUpdate(paymentId);
         Booking booking = findDetailedBooking(payment.getBooking().getId());
         authorizeGarageOperation(booking, principal);
+
+        if (payment.getMethod() == PaymentMethod.VNPAY) {
+            throw new ApiException(HttpStatus.CONFLICT, "VNPAY status is managed by IPN and timeout processing");
+        }
 
         if (payment.getStatus() != PaymentStatus.PENDING) {
             throw new ApiException(HttpStatus.CONFLICT, invalidStatusMessage);
@@ -208,6 +184,11 @@ public class PaymentService {
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Payment not found"));
     }
 
+    private Payment findDetailedPaymentForUpdate(Integer paymentId) {
+        return paymentRepository.findDetailedByIdForUpdate(paymentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Payment not found"));
+    }
+
     private Booking findDetailedBooking(Integer bookingId) {
         return bookingRepository.findDetailedById(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Booking not found"));
@@ -224,13 +205,6 @@ public class PaymentService {
         if (!canOperateGarage(booking, principal)) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You cannot operate this payment");
         }
-    }
-
-    private void authorizeCustomerPayment(Booking booking, AppUserDetails principal) {
-        if (booking.getUser().getId().equals(principal.getId()) && principal.getRoleNames().contains("CUSTOMER")) {
-            return;
-        }
-        throw new ApiException(HttpStatus.FORBIDDEN, "You cannot confirm this payment");
     }
 
     private boolean canOperateGarage(Booking booking, AppUserDetails principal) {
@@ -251,9 +225,9 @@ public class PaymentService {
         }
     }
 
-    private void recordPaymentTransaction(Payment payment, PaymentTransactionStatus status, String provider, String providerTxnId) {
+    private PaymentTransaction recordPaymentTransaction(Payment payment, PaymentTransactionStatus status, String provider, String providerTxnId) {
         try {
-            paymentTransactionRepository.save(PaymentTransaction.builder()
+            PaymentTransaction transaction = paymentTransactionRepository.save(PaymentTransaction.builder()
                     .payment(payment)
                     .provider(provider)
                     .providerTxnId(providerTxnId)
@@ -261,6 +235,7 @@ public class PaymentService {
                     .status(status)
                     .build());
             paymentTransactionRepository.flush();
+            return transaction;
         } catch (DataIntegrityViolationException ex) {
             throw new ApiException(HttpStatus.CONFLICT, "Provider transaction already exists");
         }
@@ -268,9 +243,5 @@ public class PaymentService {
 
     private String providerOrManual(String provider) {
         return provider == null || provider.isBlank() ? "MANUAL" : provider;
-    }
-
-    private String generateInvoiceCode() {
-        return "INV-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
     }
 }

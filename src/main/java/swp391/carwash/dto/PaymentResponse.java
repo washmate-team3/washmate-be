@@ -14,6 +14,7 @@ public record PaymentResponse(
         String method,
         String status,
         OffsetDateTime paidAt,
+        OffsetDateTime expiresAt,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
         List<TransactionInfo> transactions
@@ -27,6 +28,7 @@ public record PaymentResponse(
                 payment.getMethod().name(),
                 payment.getStatus().name(),
                 payment.getPaidAt(),
+                payment.getExpiresAt(),
                 payment.getCreatedAt(),
                 payment.getUpdatedAt(),
                 transactions == null ? List.of() : transactions.stream().map(TransactionInfo::from).toList()

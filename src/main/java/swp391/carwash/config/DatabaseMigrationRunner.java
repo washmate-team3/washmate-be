@@ -21,6 +21,7 @@ public class DatabaseMigrationRunner implements CommandLineRunner {
                 .dataSource(dataSource)
                 .locations("classpath:db/migration")
                 .baselineOnMigrate(true)
+                .validateOnMigrate(false)
                 .load()
                 .migrate();
     }

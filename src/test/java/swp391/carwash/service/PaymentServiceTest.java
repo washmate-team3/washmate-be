@@ -1,7 +1,6 @@
 package swp391.carwash.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
@@ -64,7 +63,13 @@ class PaymentServiceTest {
 
     @BeforeEach
     void setUp() {
-        paymentService = new PaymentService(bookingRepository, invoiceRepository, paymentRepository, paymentTransactionRepository, loyaltyService);
+        paymentService = new PaymentService(
+                bookingRepository,
+                invoiceRepository,
+                paymentRepository,
+                paymentTransactionRepository,
+                loyaltyService,
+                new PaymentSettlementService(invoiceRepository, org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class)));
 
         Garage garage = Garage.builder().id(1).name("Garage 1").address("Address").phone("0900000000").build();
         AppUser customer = AppUser.builder().id(10).fullName("Customer").phone("0911111111").build();
@@ -108,7 +113,7 @@ class PaymentServiceTest {
     @Test
     void confirmPaymentRejectsAmountMismatch() {
         payment.setAmount(new BigDecimal("49000.00"));
-        when(paymentRepository.findDetailedById(200)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
         when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
 
         ApiException exception = assertThrows(ApiException.class,
@@ -121,7 +126,7 @@ class PaymentServiceTest {
 
     @Test
     void confirmPaymentRejectsDuplicateProviderTransaction() {
-        when(paymentRepository.findDetailedById(200)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
         when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
         when(paymentTransactionRepository.existsByProviderAndProviderTxnId("MANUAL", "TXN-1")).thenReturn(true);
 
@@ -150,7 +155,7 @@ class PaymentServiceTest {
                 .status(InvoiceStatus.PAID)
                 .build();
 
-        when(paymentRepository.findDetailedById(200)).thenReturn(Optional.of(payment));
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
         when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
         when(paymentTransactionRepository.existsByProviderAndProviderTxnId("MANUAL", "REF-1")).thenReturn(false);
         when(invoiceRepository.findByBookingId(100)).thenReturn(Optional.of(invoice));
@@ -165,35 +170,19 @@ class PaymentServiceTest {
     }
 
     @Test
-    void customerCanConfirmOwnPendingPayment() {
-        when(principal.getId()).thenReturn(10);
-        when(principal.getRoleNames()).thenReturn(List.of("CUSTOMER"));
-        when(paymentRepository.findDetailedById(200)).thenReturn(Optional.of(payment));
-        when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
-        when(paymentTransactionRepository.existsByProviderAndProviderTxnId("VNPAY", "VNPAY-1")).thenReturn(false);
-        when(invoiceRepository.findByBookingId(100)).thenReturn(Optional.empty());
-        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
-
-        paymentService.confirmCustomerPayment(200, new PaymentConfirmRequest(PaymentMethod.VNPAY, "VNPAY", "VNPAY-1"), principal);
-
-        assertEquals(BookingStatus.CONFIRMED, booking.getStatus());
-        assertEquals(PaymentStatus.PAID, payment.getStatus());
-        assertEquals(PaymentMethod.VNPAY, payment.getMethod());
-        assertNotNull(payment.getPaidAt());
-        verify(paymentTransactionRepository).save(any(PaymentTransaction.class));
-    }
-
-    @Test
-    void customerCannotConfirmAnotherCustomersPayment() {
-        when(principal.getId()).thenReturn(999);
-        when(paymentRepository.findDetailedById(200)).thenReturn(Optional.of(payment));
+    void manualConfirmRejectsVnpayPayment() {
+        payment.setMethod(PaymentMethod.VNPAY);
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
         when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
 
         ApiException exception = assertThrows(ApiException.class,
-                () -> paymentService.confirmCustomerPayment(200, new PaymentConfirmRequest(PaymentMethod.CARD, "CARD", "CARD-1"), principal));
+                () -> paymentService.confirmPayment(
+                        200,
+                        new PaymentConfirmRequest(PaymentMethod.VNPAY, "VNPAY", "VNPAY-1"),
+                        principal));
 
-        assertEquals(HttpStatus.FORBIDDEN, exception.getStatus());
-        assertEquals("You cannot confirm this payment", exception.getMessage());
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("VNPAY payment can only be confirmed by a verified IPN", exception.getMessage());
         verify(paymentTransactionRepository, never()).save(any(PaymentTransaction.class));
     }
 

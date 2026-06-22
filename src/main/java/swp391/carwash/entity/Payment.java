@@ -38,6 +38,9 @@ public class Payment {
     @Column(name = "paid_at")
     private OffsetDateTime paidAt;
 
+    @Column(name = "expires_at")
+    private OffsetDateTime expiresAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default
     private OffsetDateTime createdAt = OffsetDateTime.now();

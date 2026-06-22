@@ -8,6 +8,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -41,6 +42,9 @@ public class BookingService {
     private final ServicePackageRepository servicePackageRepository;
     private final VehicleRepository vehicleRepository;
     private final LoyaltyService loyaltyService;
+
+    @Value("${washmate.payment.vnpay.timeout-minutes:15}")
+    private int paymentTimeoutMinutes;
 
     @Transactional
     public BookingResponse createBooking(BookingCreateRequest request, AppUserDetails principal) {
@@ -90,6 +94,7 @@ public class BookingService {
                         .amount(finalAmount)
                         .method(request.paymentMethod() == null ? PaymentMethod.CASH : request.paymentMethod())
                         .status(PaymentStatus.PENDING)
+                        .expiresAt(OffsetDateTime.now().plusMinutes(paymentTimeoutMinutes))
                         .build()));
         if (request.paymentMethod() != null && payment.getMethod() != request.paymentMethod()) {
             payment.setMethod(request.paymentMethod());
