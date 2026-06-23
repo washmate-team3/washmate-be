@@ -14,7 +14,7 @@ if ($existing) {
 # Set bien moi truong
 $env:DB_URL      = 'jdbc:postgresql://aws-1-ap-southeast-1.pooler.supabase.com:6543/postgres?sslmode=require&prepareThreshold=0'
 $env:DB_USERNAME = 'postgres.xobkqehriftlivzczqki'
-$env:DB_PASSWORD = 'MiniProjectAutoWash'
+$env:DB_PASSWORD = 'AUTOWASHPRONEW'
 $env:JWT_SECRET  = 'washmate-secret-at-least-32-characters-long'
 $env:OTP_MOCK_CODE         = ''
 $env:OTP_EXPOSE_MOCK_CODE  = 'false'
