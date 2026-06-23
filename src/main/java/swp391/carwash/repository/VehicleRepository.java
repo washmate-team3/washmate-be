@@ -23,5 +23,6 @@ public interface VehicleRepository extends JpaRepository<Vehicle, Integer> {
 
     // kiểm tra biển số tồn tại
     boolean existsByLicensePlateAndDeletedAtIsNull(String licensePlate);
+    ;
 
 }

@@ -22,4 +22,6 @@ public interface VehicleService {
     VehicleResponse update(Integer vehicleId,UpdateVehicleRequest request);
 
     void delete(Integer vehicleId);
+
+    List<VehicleResponse> getByEmail(String email);
 }

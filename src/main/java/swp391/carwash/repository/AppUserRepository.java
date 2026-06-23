@@ -1,6 +1,8 @@
 package swp391.carwash.repository;
 
 import java.util.Optional;
+
+import org.apache.catalina.User;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -22,4 +24,6 @@ public interface AppUserRepository extends JpaRepository<AppUser, Integer> {
 
     @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "userRoles.garage"})
     org.springframework.data.domain.Page<AppUser> findAll(org.springframework.data.domain.Pageable pageable);
+
+    Optional<AppUser> findByEmail(String email);
 }
