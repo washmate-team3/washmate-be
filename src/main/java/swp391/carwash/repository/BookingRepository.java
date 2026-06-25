@@ -12,6 +12,28 @@ import swp391.carwash.entity.Booking;
 import swp391.carwash.enums.BookingStatus;
 
 public interface BookingRepository extends JpaRepository<Booking, Integer> {
+        @Query(value = """
+                        SELECT
+                            user_id AS "userId",
+                            garage_id AS "garageId",
+                            month_year AS "monthYear",
+                            total_bookings AS "totalBookings",
+                            completed_count AS "completedCount",
+                            cancelled_count AS "cancelledCount",
+                            no_show_count AS "noShowCount",
+                            total_spent AS "totalSpent",
+                            preferred_slot_id AS "preferredSlotId",
+                            status,
+                            last_updated AS "lastUpdated"
+                        FROM booking_behavior_monthly
+                        WHERE (:garageId IS NULL OR garage_id = :garageId)
+                          AND (:period IS NULL OR month_year = :period)
+                        ORDER BY month_year DESC, garage_id, user_id
+                        """, nativeQuery = true)
+        List<BookingBehaviorMonthlyView> findBookingBehaviorMonthly(
+                        @Param("garageId") Integer garageId,
+                        @Param("period") String period);
+
         @EntityGraph(attributePaths = { "user", "garage", "slot", "service", "vehicle", "assignedStaff" })
         @Query("select b from Booking b where b.id = :id")
         Optional<Booking> findDetailedById(@Param("id") Integer id);
