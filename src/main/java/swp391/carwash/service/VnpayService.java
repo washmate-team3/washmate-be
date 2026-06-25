@@ -6,9 +6,11 @@ import java.net.URI;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeMap;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -35,13 +37,18 @@ import swp391.carwash.repository.PaymentTransactionRepository;
 import swp391.carwash.security.AppUserDetails;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class VnpayService {
     private static final String PROVIDER = "VNPAY";
     private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter VNPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final Set<BookingStatus> VNPAY_URL_CREATABLE_STATUSES = EnumSet.of(
+            BookingStatus.PENDING,
+            BookingStatus.CONFIRMED);
 
     private final VnpayProperties properties;
     private final VnpaySigner signer;
@@ -82,14 +89,18 @@ public class VnpayService {
                 || !principal.getRoleNames().contains("CUSTOMER")) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You cannot create a VNPAY URL for this payment");
         }
-        if (payment.getMethod() != PaymentMethod.VNPAY) {
-            throw new ApiException(HttpStatus.CONFLICT, "Payment method is not VNPAY");
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new ApiException(HttpStatus.CONFLICT, "Only a PENDING payment can create a VNPAY URL");
         }
-        if (payment.getStatus() != PaymentStatus.PENDING || booking.getStatus() != BookingStatus.PENDING) {
-            throw new ApiException(HttpStatus.CONFLICT, "Only a PENDING booking payment can create a VNPAY URL");
+        if (!VNPAY_URL_CREATABLE_STATUSES.contains(booking.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Only PENDING or CONFIRMED booking payment can create a VNPAY URL");
         }
 
         OffsetDateTime now = OffsetDateTime.now();
+        if (payment.getMethod() != PaymentMethod.VNPAY) {
+            payment.setMethod(PaymentMethod.VNPAY);
+            payment.setUpdatedAt(now);
+        }
         if (payment.getExpiresAt() == null) {
             payment.setExpiresAt(now.plusMinutes(properties.getTimeoutMinutes()));
             payment.setUpdatedAt(now);
@@ -114,11 +125,13 @@ public class VnpayService {
         Map<String, String> parameters = buildPaymentParameters(payment, booking, attempt, clientIp);
         String paymentUrl = signer.buildPaymentUrl(
                 properties.getPayUrl(), parameters, properties.getHashSecret());
+        log.info("Created VNPAY payment URL for payment {}. TxnRef: {}", paymentId, attempt.getMerchantTxnRef());
         return new VnpayPaymentUrlResponse(payment.getId(), paymentUrl, attempt.getExpiresAt());
     }
 
     public VnpayIpnResponse handleIpn(Map<String, String> callbackParameters) {
         if (!isCallbackAuthentic(callbackParameters)) {
+            log.warn("VNPAY IPN validation failed: Invalid signature");
             return VnpayIpnResponse.of("97", "Invalid signature");
         }
         try {
@@ -161,15 +174,18 @@ public class VnpayService {
                 .findByProviderAndMerchantTxnRef(PROVIDER, merchantTxnRef)
                 .orElse(null);
         if (attempt == null) {
+            log.warn("VNPAY IPN failed: Order not found for TxnRef {}", merchantTxnRef);
             return VnpayIpnResponse.of("01", "Order not found");
         }
 
         Payment payment = paymentRepository.findDetailedByIdForUpdate(attempt.getPayment().getId())
                 .orElse(null);
         if (payment == null) {
+            log.warn("VNPAY IPN failed: Payment not found for TxnRef {}", merchantTxnRef);
             return VnpayIpnResponse.of("01", "Order not found");
         }
         if (!amountMatches(payment.getAmount(), callbackParameters.get("vnp_Amount"))) {
+            log.warn("VNPAY IPN failed: Invalid amount for TxnRef {}", merchantTxnRef);
             return VnpayIpnResponse.of("04", "Invalid amount");
         }
         if (attempt.getStatus() != PaymentTransactionStatus.PENDING
@@ -201,6 +217,7 @@ public class VnpayService {
             attempt.setStatus("24".equals(callbackParameters.get("vnp_ResponseCode"))
                     ? PaymentTransactionStatus.CANCELLED
                     : PaymentTransactionStatus.FAILED);
+            log.info("VNPAY IPN completed with failure/cancellation. TxnRef {}, Status {}", merchantTxnRef, attempt.getStatus());
         }
         paymentTransactionRepository.flush();
         return VnpayIpnResponse.of("00", "Confirm Success");

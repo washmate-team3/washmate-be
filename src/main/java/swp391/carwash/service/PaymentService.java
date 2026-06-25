@@ -1,7 +1,9 @@
 package swp391.carwash.service;
 
 import java.time.OffsetDateTime;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -26,7 +28,9 @@ import swp391.carwash.repository.InvoiceRepository;
 import swp391.carwash.repository.PaymentRepository;
 import swp391.carwash.repository.PaymentTransactionRepository;
 import swp391.carwash.security.AppUserDetails;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
@@ -36,6 +40,11 @@ public class PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final LoyaltyService loyaltyService;
     private final PaymentSettlementService paymentSettlementService;
+    private static final Set<BookingStatus> MANUAL_PAYMENT_CONFIRMABLE_STATUSES = EnumSet.of(
+            BookingStatus.PENDING,
+            BookingStatus.CONFIRMED,
+            BookingStatus.CHECKED_IN,
+            BookingStatus.WASHING);
 
     @Transactional(readOnly = true)
     public PaymentResponse getPayment(Integer paymentId, AppUserDetails principal) {
@@ -69,8 +78,8 @@ public class PaymentService {
     }
 
     private BookingResponse confirmPendingPayment(Payment payment, Booking booking, PaymentConfirmRequest request) {
-        if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new ApiException(HttpStatus.CONFLICT, "Only PENDING booking can be confirmed");
+        if (!MANUAL_PAYMENT_CONFIRMABLE_STATUSES.contains(booking.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Only active booking payment can be confirmed");
         }
         if (payment.getStatus() != PaymentStatus.PENDING) {
             throw new ApiException(HttpStatus.CONFLICT, "Only PENDING payment can be confirmed");
@@ -92,6 +101,7 @@ public class PaymentService {
                 payment, PaymentTransactionStatus.SUCCESS, provider, providerTxnId);
         Invoice invoice = paymentSettlementService.settle(payment, booking, transaction, method, now);
 
+        log.info("Payment {} confirmed manually with provider {}", payment.getId(), provider);
         return BookingResponse.from(booking, payment, invoice);
     }
 
@@ -112,6 +122,7 @@ public class PaymentService {
         authorizeGarageOperation(booking, principal);
 
         if (payment.getMethod() == PaymentMethod.VNPAY) {
+            log.warn("TODO: Manual refund for VNPAY payment {} must be performed on VNPAY merchant portal", paymentId);
             throw new ApiException(HttpStatus.CONFLICT, "VNPAY refund API is not implemented");
         }
 
@@ -139,6 +150,7 @@ public class PaymentService {
         }
         loyaltyService.rollbackEarnedPointsForBooking(booking);
 
+        log.info("Payment {} refunded. Booking {} cancelled.", paymentId, booking.getBookingCode());
         return BookingResponse.from(booking, payment, invoice);
     }
 
@@ -176,6 +188,7 @@ public class PaymentService {
         recordPaymentTransaction(payment, transactionStatus, provider, providerTxnId);
 
         Invoice invoice = invoiceRepository.findByBookingId(booking.getId()).orElse(null);
+        log.info("Payment {} closed with status {}. Booking {} cancelled.", paymentId, paymentStatus, booking.getBookingCode());
         return BookingResponse.from(booking, payment, invoice);
     }
 

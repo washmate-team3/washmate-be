@@ -1,6 +1,7 @@
 package swp391.carwash.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.ArgumentMatchers.any;
@@ -135,6 +136,39 @@ class PaymentServiceTest {
 
         assertEquals(HttpStatus.CONFLICT, exception.getStatus());
         assertEquals("Provider transaction already exists", exception.getMessage());
+        verify(paymentTransactionRepository, never()).save(any(PaymentTransaction.class));
+    }
+
+    @Test
+    void confirmCashPaymentAllowsWashingBookingAndKeepsBookingStatus() {
+        booking.setStatus(BookingStatus.WASHING);
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+        when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
+        when(invoiceRepository.findByBookingId(100)).thenReturn(Optional.empty());
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        paymentService.confirmPayment(200, new PaymentConfirmRequest(PaymentMethod.CASH, "MANUAL", "TXN-2"), principal);
+
+        assertEquals(PaymentStatus.PAID, payment.getStatus());
+        assertEquals(PaymentMethod.CASH, payment.getMethod());
+        assertEquals(BookingStatus.WASHING, booking.getStatus());
+        assertNotNull(payment.getPaidAt());
+        verify(invoiceRepository).save(any(Invoice.class));
+    }
+
+    @Test
+    void confirmCashPaymentRejectsCancelledBooking() {
+        booking.setStatus(BookingStatus.CANCELLED);
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+        when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> paymentService.confirmPayment(200, new PaymentConfirmRequest(PaymentMethod.CASH, "MANUAL", "TXN-3"), principal));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("Only active booking payment can be confirmed", exception.getMessage());
         verify(paymentTransactionRepository, never()).save(any(PaymentTransaction.class));
     }
 

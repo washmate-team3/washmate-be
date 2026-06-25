@@ -164,6 +164,43 @@ class VnpayServiceTest {
     }
 
     @Test
+    void createPaymentUrlSwitchesCashPaymentToVnpayForConfirmedBooking() {
+        booking.setStatus(BookingStatus.CONFIRMED);
+        payment.setMethod(PaymentMethod.CASH);
+        when(principal.getId()).thenReturn(10);
+        when(principal.getRoleNames()).thenReturn(List.of("CUSTOMER"));
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+        when(paymentTransactionRepository
+                .findFirstByPaymentIdAndProviderAndStatusAndExpiresAtAfterOrderByCreatedAtDesc(
+                        any(), any(), any(), any()))
+                .thenReturn(Optional.empty());
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        VnpayPaymentUrlResponse response = vnpayService.createPaymentUrl(200, principal, "127.0.0.1");
+
+        assertEquals(200, response.paymentId());
+        assertEquals(PaymentMethod.VNPAY, payment.getMethod());
+        assertNotNull(payment.getUpdatedAt());
+        verify(paymentTransactionRepository).save(any(PaymentTransaction.class));
+    }
+
+    @Test
+    void createPaymentUrlRejectsCheckedInBooking() {
+        booking.setStatus(BookingStatus.CHECKED_IN);
+        when(principal.getId()).thenReturn(10);
+        when(principal.getRoleNames()).thenReturn(List.of("CUSTOMER"));
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+
+        ApiException exception = assertThrows(ApiException.class,
+                () -> vnpayService.createPaymentUrl(200, principal, "127.0.0.1"));
+
+        assertEquals(HttpStatus.CONFLICT, exception.getStatus());
+        assertEquals("Only PENDING or CONFIRMED booking payment can create a VNPAY URL", exception.getMessage());
+        verify(paymentTransactionRepository, never()).save(any());
+    }
+
+    @Test
     void createPaymentUrlRejectsAnotherCustomer() {
         when(principal.getId()).thenReturn(999);
         when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
@@ -198,6 +235,29 @@ class VnpayServiceTest {
         assertNotNull(attempt.getRawResponse());
         verify(invoiceRepository).save(any(Invoice.class));
         verify(transactionManager).commit(transactionStatus);
+    }
+
+    @Test
+    void successfulIpnSettlesWashingBookingWithoutRewindingStatus() {
+        booking.setStatus(BookingStatus.WASHING);
+        Map<String, String> callback = signedCallback("5000000", "00", "00");
+        when(paymentTransactionRepository.findByProviderAndMerchantTxnRef("VNPAY", "P200TEST"))
+                .thenReturn(Optional.of(attempt));
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+        when(paymentTransactionRepository.findByProviderAndProviderTxnId("VNPAY", "900001"))
+                .thenReturn(Optional.empty());
+        when(invoiceRepository.findByBookingId(100)).thenReturn(Optional.empty());
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(paymentTransactionRepository.findByPaymentIdAndStatus(200, PaymentTransactionStatus.PENDING))
+                .thenReturn(List.of(attempt));
+
+        VnpayIpnResponse response = vnpayService.handleIpn(callback);
+
+        assertEquals("00", response.rspCode());
+        assertEquals(PaymentStatus.PAID, payment.getStatus());
+        assertEquals(BookingStatus.WASHING, booking.getStatus());
+        assertEquals(PaymentTransactionStatus.SUCCESS, attempt.getStatus());
+        verify(invoiceRepository).save(any(Invoice.class));
     }
 
     @Test

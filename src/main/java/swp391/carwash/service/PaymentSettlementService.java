@@ -2,6 +2,8 @@ package swp391.carwash.service;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -20,11 +22,19 @@ import swp391.carwash.repository.InvoiceRepository;
 import swp391.carwash.event.InvoiceCreatedEvent;
 import org.springframework.context.ApplicationEventPublisher;
 
+import lombok.extern.slf4j.Slf4j;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PaymentSettlementService {
     private final InvoiceRepository invoiceRepository;
     private final ApplicationEventPublisher eventPublisher;
+    private static final Set<BookingStatus> SETTLEABLE_BOOKING_STATUSES = EnumSet.of(
+            BookingStatus.PENDING,
+            BookingStatus.CONFIRMED,
+            BookingStatus.CHECKED_IN,
+            BookingStatus.WASHING);
 
     public Invoice settle(
             Payment payment,
@@ -32,8 +42,8 @@ public class PaymentSettlementService {
             PaymentTransaction transaction,
             PaymentMethod method,
             OffsetDateTime now) {
-        if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new ApiException(HttpStatus.CONFLICT, "Only PENDING booking can be confirmed");
+        if (!SETTLEABLE_BOOKING_STATUSES.contains(booking.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Only active booking payment can be confirmed");
         }
         if (payment.getStatus() != PaymentStatus.PENDING) {
             throw new ApiException(HttpStatus.CONFLICT, "Only PENDING payment can be confirmed");
@@ -47,8 +57,10 @@ public class PaymentSettlementService {
         payment.setPaidAt(now);
         payment.setUpdatedAt(now);
 
-        booking.setStatus(BookingStatus.CONFIRMED);
-        booking.setConfirmedAt(now);
+        if (booking.getStatus() == BookingStatus.PENDING) {
+            booking.setStatus(BookingStatus.CONFIRMED);
+            booking.setConfirmedAt(now);
+        }
 
         transaction.setStatus(PaymentTransactionStatus.SUCCESS);
         transaction.setAmount(payment.getAmount());
@@ -81,6 +93,8 @@ public class PaymentSettlementService {
 
         // Publish event to trigger email
         eventPublisher.publishEvent(new InvoiceCreatedEvent(invoice.getId()));
+        
+        log.info("Payment settled successfully. Payment {}, Booking {}, Invoice {}", payment.getId(), booking.getBookingCode(), invoice.getInvoiceCode());
 
         return invoice;
     }
