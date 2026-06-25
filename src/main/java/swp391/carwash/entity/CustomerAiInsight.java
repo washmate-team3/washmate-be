@@ -64,7 +64,7 @@ public class CustomerAiInsight {
     @Column(name = "model_version", nullable = false, length = 50)
     private String modelVersion;
 
-    @Column(name = "generated_at", nullable = false, updatable = false)
+    @Column(name = "generated_at", nullable = false)
     @Builder.Default
     private OffsetDateTime generatedAt = OffsetDateTime.now();
 }
