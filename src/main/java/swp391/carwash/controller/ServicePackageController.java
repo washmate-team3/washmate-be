@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import swp391.carwash.dto.request.ServicePackageRequest.CreateServicePackageRequest;
 import swp391.carwash.dto.request.ServicePackageRequest.UpdateServicePackageRequest;
-import swp391.carwash.dto.respone.ServicePackage.ServicePackageResponse;
+import swp391.carwash.dto.response.ServicePackage.ServicePackageResponse;
 import swp391.carwash.service.ServicePackageService;
 
 import java.util.List;

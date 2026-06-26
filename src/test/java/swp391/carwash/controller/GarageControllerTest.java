@@ -12,7 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import swp391.carwash.dto.request.Garages.CreateGarageRequest;
-import swp391.carwash.dto.respone.Garages.GarageResponse;
+import swp391.carwash.dto.response.Garages.GarageResponse;
 import swp391.carwash.service.GarageService;
 import swp391.carwash.security.AppUserDetails;
 import swp391.carwash.entity.AppUser;
@@ -20,7 +20,6 @@ import swp391.carwash.enums.UserStatus;
 
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.Optional;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;

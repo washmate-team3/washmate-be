@@ -7,10 +7,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import swp391.carwash.dto.respone.Notification.NotificationResponse;
+import swp391.carwash.dto.response.Notification.NotificationResponse;
 import swp391.carwash.entity.Notification;
 import swp391.carwash.repository.NotificationRepository;
-import swp391.carwash.dto.respone.PagedResponse;
+import swp391.carwash.dto.response.PagedResponse;
 
 import java.time.OffsetDateTime;
 import java.util.List;

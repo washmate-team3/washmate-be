@@ -1,8 +1,7 @@
-package swp391.carwash.dto.respone.Notification;
+package swp391.carwash.dto.response.Notification;
 
 import lombok.Builder;
 
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 
 @Builder

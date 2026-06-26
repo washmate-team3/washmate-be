@@ -4,7 +4,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.carwash.dto.request.Garages.CreateGarageRequest;
 import swp391.carwash.dto.request.Garages.UpdateGarageRequest;
-import swp391.carwash.dto.respone.Garages.GarageResponse;
+import swp391.carwash.dto.response.Garages.GarageResponse;
 import swp391.carwash.entity.Garage;
 import swp391.carwash.repository.GarageRepository;
 import java.time.OffsetDateTime;

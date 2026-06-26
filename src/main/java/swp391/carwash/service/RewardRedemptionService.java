@@ -3,7 +3,7 @@ package swp391.carwash.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import swp391.carwash.dto.respone.Reward.RewardRedemptionResponse;
+import swp391.carwash.dto.response.Reward.RewardRedemptionResponse;
 import swp391.carwash.entity.Reward;
 import swp391.carwash.entity.RewardRedemption;
 import swp391.carwash.repository.AppUserRepository;

@@ -4,8 +4,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import swp391.carwash.dto.respone.Notification.NotificationResponse;
-import swp391.carwash.dto.respone.PagedResponse;
+import swp391.carwash.dto.response.Notification.NotificationResponse;
+import swp391.carwash.dto.response.PagedResponse;
 import swp391.carwash.service.NotificationService;
 
 @RestController

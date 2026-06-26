@@ -12,7 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import swp391.carwash.dto.request.vehicles.CreateVehicleRequest;
-import swp391.carwash.dto.respone.vehicles.VehicleResponse;
+import swp391.carwash.dto.response.vehicles.VehicleResponse;
 import swp391.carwash.service.VehicleService;
 import swp391.carwash.security.AppUserDetails;
 import swp391.carwash.entity.AppUser;

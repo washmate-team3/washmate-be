@@ -1,4 +1,4 @@
-package swp391.carwash.dto.respone.vehicles;
+package swp391.carwash.dto.response.vehicles;
 
 import lombok.Builder;
 import lombok.Data;

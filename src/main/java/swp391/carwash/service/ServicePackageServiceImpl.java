@@ -6,14 +6,12 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.carwash.dto.request.ServicePackageRequest.CreateServicePackageRequest;
 import swp391.carwash.dto.request.ServicePackageRequest.UpdateServicePackageRequest;
-import swp391.carwash.dto.respone.ServicePackage.ServicePackageResponse;
+import swp391.carwash.dto.response.ServicePackage.ServicePackageResponse;
 import swp391.carwash.entity.ServicePackage;
 import swp391.carwash.repository.ServicePackageRepository;
-import swp391.carwash.service.ServicePackageService;
 import swp391.carwash.repository.GarageRepository;
 import swp391.carwash.entity.Garage;
 
-import java.time.OffsetDateTime;
 import java.util.List;
 
 @Service

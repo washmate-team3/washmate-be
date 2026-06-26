@@ -10,8 +10,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mail.javamail.JavaMailSender;
 
-import swp391.carwash.dto.respone.Notification.NotificationResponse;
-import swp391.carwash.dto.respone.PagedResponse;
+import swp391.carwash.dto.response.Notification.NotificationResponse;
+import swp391.carwash.dto.response.PagedResponse;
 import swp391.carwash.service.NotificationService;
 import swp391.carwash.security.AppUserDetails;
 import swp391.carwash.entity.AppUser;

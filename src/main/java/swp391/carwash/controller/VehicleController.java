@@ -11,7 +11,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import swp391.carwash.dto.request.vehicles.CreateVehicleRequest;
 import swp391.carwash.dto.request.vehicles.UpdateVehicleRequest;
-import swp391.carwash.dto.respone.vehicles.VehicleResponse;
+import swp391.carwash.dto.response.vehicles.VehicleResponse;
 import swp391.carwash.service.VehicleService;
 
 import java.util.List;
