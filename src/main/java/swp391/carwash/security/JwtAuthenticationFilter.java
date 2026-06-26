@@ -31,7 +31,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 || path.equals("/actuator/health")
                 || path.equals("/api/payments/vnpay/ipn")
                 || path.equals("/api/payments/vnpay/return")
-                || path.startsWith("/api/auth/");
+                || isPublicAuthPath(path);
+    }
+
+    private boolean isPublicAuthPath(String path) {
+        return path.equals("/api/auth/register")
+                || path.equals("/api/auth/login")
+                || path.equals("/api/auth/otp/request")
+                || path.equals("/api/auth/otp/verify")
+                || path.equals("/api/auth/refresh")
+                || path.equals("/api/auth/logout")
+                || path.equals("/api/auth/password/forgot")
+                || path.equals("/api/auth/password/reset");
     }
 
     @Override

@@ -2,9 +2,12 @@ package swp391.carwash.controller;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.dto.*;
+import swp391.carwash.security.AppUserDetails;
 import swp391.carwash.service.AuthService;
 
 @RestController
@@ -56,8 +59,11 @@ public class AuthController {
 
     @PutMapping("/password/change")
     public ResponseEntity<Void> changePassword(
-            @org.springframework.security.core.annotation.AuthenticationPrincipal swp391.carwash.security.AppUserDetails principal,
+            @org.springframework.security.core.annotation.AuthenticationPrincipal AppUserDetails principal,
             @Valid @RequestBody ChangePasswordRequest request) {
+        if (principal == null) {
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Authentication required");
+        }
         authService.changePassword(principal.getId(), request);
         return ResponseEntity.noContent().build();
     }

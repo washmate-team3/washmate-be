@@ -62,8 +62,9 @@ public class BookingControllerTest {
 
     @Test
     void testGetMyBookingsAuthorized() throws Exception {
-        BookingResponse response = new BookingResponse(100, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
-        
+        BookingResponse response = new BookingResponse(100, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null);
+
         when(bookingService.getMyBookings(any(AppUserDetails.class))).thenReturn(List.of(response));
 
         mockMvc.perform(get("/api/bookings/me")
@@ -90,9 +91,11 @@ public class BookingControllerTest {
                 "  \"paymentMethod\": \"CASH\"\n" +
                 "}";
 
-        BookingResponse response = new BookingResponse(100, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null);
+        BookingResponse response = new BookingResponse(100, null, null, null, null, null, null, null, null, null, null,
+                null, null, null, null, null, null, null);
 
-        when(bookingService.createBooking(any(BookingCreateRequest.class), any(AppUserDetails.class))).thenReturn(response);
+        when(bookingService.createBooking(any(BookingCreateRequest.class), any(AppUserDetails.class)))
+                .thenReturn(response);
 
         mockMvc.perform(post("/api/bookings")
                 .with(user(createMockUser()))

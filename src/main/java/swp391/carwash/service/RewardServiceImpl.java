@@ -21,7 +21,8 @@ public class RewardServiceImpl implements RewardService {
 
     @Override
     public RewardResponse createReward(RewardCreateRequest request) {
-// Dùng proxy reference để map FK garage_id chuẩn chỉ không sợ tốn câu lệnh SELECT
+        // Dùng proxy reference để map FK garage_id chuẩn chỉ không sợ tốn câu lệnh
+        // SELECT
         Garage garageProxy = garageRepository.getReferenceById(request.garageId());
 
         Reward reward = Reward.builder()
@@ -33,7 +34,8 @@ public class RewardServiceImpl implements RewardService {
                 .status(request.stock() > 0 ? "ACTIVE" : "OUT_OF_STOCK")
                 .build();
 
-        return mapToResponse(rewardRepository.save(reward));    }
+        return mapToResponse(rewardRepository.save(reward));
+    }
 
     @Override
     public RewardResponse getRewardById(Integer rewardId) {
@@ -53,7 +55,8 @@ public class RewardServiceImpl implements RewardService {
         reward.setStock(request.stock());
         reward.setStatus(request.status());
 
-        return mapToResponse(rewardRepository.save(reward));    }
+        return mapToResponse(rewardRepository.save(reward));
+    }
 
     @Override
     public void deleteReward(Integer rewardId) {
@@ -71,6 +74,7 @@ public class RewardServiceImpl implements RewardService {
         }
         return rewardRepository.findByGarageIdAndStatusNot(garageId, "DELETED", pageable).map(this::mapToResponse);
     }
+
     private RewardResponse mapToResponse(Reward reward) {
         return new RewardResponse(
                 reward.getRewardId(),
@@ -79,7 +83,6 @@ public class RewardServiceImpl implements RewardService {
                 reward.getDescription(),
                 reward.getPointsRequired(),
                 reward.getStock(),
-                reward.getStatus()
-        );
+                reward.getStatus());
     }
 }

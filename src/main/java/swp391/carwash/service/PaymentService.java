@@ -1,6 +1,7 @@
 package swp391.carwash.service;
 
 import java.time.OffsetDateTime;
+import java.util.EnumSet;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -30,6 +31,12 @@ import swp391.carwash.security.AppUserDetails;
 @Service
 @RequiredArgsConstructor
 public class PaymentService {
+    private static final EnumSet<BookingStatus> PAYABLE_BOOKING_STATUSES = EnumSet.of(
+            BookingStatus.PENDING,
+            BookingStatus.CONFIRMED,
+            BookingStatus.CHECKED_IN,
+            BookingStatus.WASHING);
+
     private final BookingRepository bookingRepository;
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
@@ -69,8 +76,8 @@ public class PaymentService {
     }
 
     private BookingResponse confirmPendingPayment(Payment payment, Booking booking, PaymentConfirmRequest request) {
-        if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new ApiException(HttpStatus.CONFLICT, "Only PENDING booking can be confirmed");
+        if (!PAYABLE_BOOKING_STATUSES.contains(booking.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Only active booking can be paid");
         }
         if (payment.getStatus() != PaymentStatus.PENDING) {
             throw new ApiException(HttpStatus.CONFLICT, "Only PENDING payment can be confirmed");

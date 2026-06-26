@@ -2,6 +2,7 @@ package swp391.carwash.service;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.EnumSet;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -23,6 +24,12 @@ import org.springframework.context.ApplicationEventPublisher;
 @Service
 @RequiredArgsConstructor
 public class PaymentSettlementService {
+    private static final EnumSet<BookingStatus> PAYABLE_BOOKING_STATUSES = EnumSet.of(
+            BookingStatus.PENDING,
+            BookingStatus.CONFIRMED,
+            BookingStatus.CHECKED_IN,
+            BookingStatus.WASHING);
+
     private final InvoiceRepository invoiceRepository;
     private final ApplicationEventPublisher eventPublisher;
 
@@ -32,8 +39,8 @@ public class PaymentSettlementService {
             PaymentTransaction transaction,
             PaymentMethod method,
             OffsetDateTime now) {
-        if (booking.getStatus() != BookingStatus.PENDING) {
-            throw new ApiException(HttpStatus.CONFLICT, "Only PENDING booking can be confirmed");
+        if (!PAYABLE_BOOKING_STATUSES.contains(booking.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Only active booking can be paid");
         }
         if (payment.getStatus() != PaymentStatus.PENDING) {
             throw new ApiException(HttpStatus.CONFLICT, "Only PENDING payment can be confirmed");
@@ -47,8 +54,10 @@ public class PaymentSettlementService {
         payment.setPaidAt(now);
         payment.setUpdatedAt(now);
 
-        booking.setStatus(BookingStatus.CONFIRMED);
-        booking.setConfirmedAt(now);
+        if (booking.getStatus() == BookingStatus.PENDING) {
+            booking.setStatus(BookingStatus.CONFIRMED);
+            booking.setConfirmedAt(now);
+        }
 
         transaction.setStatus(PaymentTransactionStatus.SUCCESS);
         transaction.setAmount(payment.getAmount());

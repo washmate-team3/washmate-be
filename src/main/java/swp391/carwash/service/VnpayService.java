@@ -6,6 +6,7 @@ import java.net.URI;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,6 +43,11 @@ public class VnpayService {
     private static final String PROVIDER = "VNPAY";
     private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter VNPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+    private static final EnumSet<BookingStatus> VNPAY_BOOKING_STATUSES = EnumSet.of(
+            BookingStatus.PENDING,
+            BookingStatus.CONFIRMED,
+            BookingStatus.CHECKED_IN,
+            BookingStatus.WASHING);
 
     private final VnpayProperties properties;
     private final VnpaySigner signer;
@@ -82,14 +88,18 @@ public class VnpayService {
                 || !principal.getRoleNames().contains("CUSTOMER")) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You cannot create a VNPAY URL for this payment");
         }
-        if (payment.getMethod() != PaymentMethod.VNPAY) {
-            throw new ApiException(HttpStatus.CONFLICT, "Payment method is not VNPAY");
+        if (payment.getStatus() != PaymentStatus.PENDING) {
+            throw new ApiException(HttpStatus.CONFLICT, "Only PENDING payment can create a VNPAY URL");
         }
-        if (payment.getStatus() != PaymentStatus.PENDING || booking.getStatus() != BookingStatus.PENDING) {
-            throw new ApiException(HttpStatus.CONFLICT, "Only a PENDING booking payment can create a VNPAY URL");
+        if (!VNPAY_BOOKING_STATUSES.contains(booking.getStatus())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Only active booking can create a VNPAY URL");
         }
 
         OffsetDateTime now = OffsetDateTime.now();
+        if (payment.getMethod() != PaymentMethod.VNPAY) {
+            payment.setMethod(PaymentMethod.VNPAY);
+            payment.setUpdatedAt(now);
+        }
         if (payment.getExpiresAt() == null) {
             payment.setExpiresAt(now.plusMinutes(properties.getTimeoutMinutes()));
             payment.setUpdatedAt(now);

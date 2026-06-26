@@ -67,11 +67,22 @@ public class SecurityConfig {
         }
         return path.equals("/")
                 || path.equals("/api/health")
-                || path.startsWith("/api/auth/")
+                || isPublicAuthPath(path)
                 || path.equals("/actuator/health")
                 || path.equals("/error")
                 || path.equals("/favicon.ico")
                 || (docsEnabled && isDocsRequest(path));
+    }
+
+    private boolean isPublicAuthPath(String path) {
+        return path.equals("/api/auth/register")
+                || path.equals("/api/auth/login")
+                || path.equals("/api/auth/otp/request")
+                || path.equals("/api/auth/otp/verify")
+                || path.equals("/api/auth/refresh")
+                || path.equals("/api/auth/logout")
+                || path.equals("/api/auth/password/forgot")
+                || path.equals("/api/auth/password/reset");
     }
 
     private boolean isDocsRequest(String path) {

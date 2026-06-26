@@ -200,8 +200,25 @@ class PaymentServiceTest {
     }
 
     @Test
-    void confirmPaymentRejectsWhenBookingNotPending() {
+    void confirmPaymentAllowsConfirmedBookingAndPreservesStatus() {
         booking.setStatus(BookingStatus.CONFIRMED);
+        when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
+        when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(invoiceRepository.findByBookingId(100)).thenReturn(Optional.empty());
+        when(invoiceRepository.save(any(Invoice.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        paymentService.confirmPayment(200, new PaymentConfirmRequest(PaymentMethod.CASH, "MANUAL", "TXN-1"), principal);
+
+        assertEquals(PaymentStatus.PAID, payment.getStatus());
+        assertEquals(BookingStatus.CONFIRMED, booking.getStatus());
+        verify(invoiceRepository).save(any(Invoice.class));
+    }
+
+    @Test
+    void confirmPaymentRejectsCompletedBooking() {
+        booking.setStatus(BookingStatus.COMPLETED);
         when(paymentRepository.findDetailedByIdForUpdate(200)).thenReturn(Optional.of(payment));
         when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
 
@@ -209,7 +226,7 @@ class PaymentServiceTest {
                 () -> paymentService.confirmPayment(200, new PaymentConfirmRequest(PaymentMethod.CASH, "MANUAL", "TXN-1"), principal));
 
         assertEquals(HttpStatus.CONFLICT, exception.getStatus());
-        assertEquals("Only PENDING booking can be confirmed", exception.getMessage());
+        assertEquals("Only active booking can be paid", exception.getMessage());
         verify(paymentTransactionRepository, never()).save(any(PaymentTransaction.class));
     }
 
