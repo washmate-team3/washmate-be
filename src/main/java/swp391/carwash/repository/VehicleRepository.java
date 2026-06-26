@@ -9,10 +9,6 @@ import java.util.Optional;
 
 @Repository
 public interface VehicleRepository extends JpaRepository<Vehicle, Integer> {
-
-    // lấy tất cả xe chưa bị xóa
-    List<Vehicle> findByDeletedAtIsNull();
-
     // tìm xe theo id chưa bị xóa
     Optional<Vehicle> findByIdAndDeletedAtIsNull(Integer vehicleId);
 

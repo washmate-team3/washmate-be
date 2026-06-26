@@ -17,7 +17,7 @@ public class Reward {
     @Column(name = "reward_id")
     private Integer rewardId;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "garage_id", nullable = false)
     private Garage garage;
 

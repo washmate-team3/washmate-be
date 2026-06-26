@@ -1,11 +1,15 @@
 package swp391.carwash.service;
 
-import swp391.carwash.dto.respone.vehicles.RedemptionResponse;
-import swp391.carwash.dto.respone.vehicles.RewardResponse;
-
-import java.util.List;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import swp391.carwash.dto.request.Reward.RewardCreateRequest;
+import swp391.carwash.dto.request.Reward.RewardUpdateRequest;
+import swp391.carwash.dto.respone.Reward.RewardResponse;
 
 public interface RewardService {
-    List<RewardResponse> getAvailableRewards(Integer garageId);
-    RedemptionResponse redeemReward(Integer userId, Integer garageId, Integer rewardId);
+    RewardResponse createReward(RewardCreateRequest request);
+    RewardResponse getRewardById(Integer rewardId);
+    RewardResponse updateReward(Integer rewardId, RewardUpdateRequest request);
+    void deleteReward(Integer rewardId);
+    Page<RewardResponse> getAllRewards(Integer garageId, String status, Pageable pageable);
 }
