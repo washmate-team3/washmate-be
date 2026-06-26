@@ -1,6 +1,7 @@
 package swp391.carwash.controller;
 
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -10,6 +11,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import swp391.carwash.dto.CustomerAiInsightAdminResponse;
 import swp391.carwash.service.AiInsightGenerationService;
 
@@ -45,5 +48,18 @@ class AdminAiInsightControllerTest {
 
         assertSame(expected, response);
         verify(aiInsightGenerationService).getInsights(1, "2026-06");
+    }
+
+    @Test
+    void usesShortAdminInsightRoutes() throws NoSuchMethodException {
+        PostMapping generateMapping = AdminAiInsightController.class
+                .getMethod("generateInsights", Integer.class, String.class)
+                .getAnnotation(PostMapping.class);
+        GetMapping getMapping = AdminAiInsightController.class
+                .getMethod("getInsights", Integer.class, String.class)
+                .getAnnotation(GetMapping.class);
+
+        assertTrue(List.of(generateMapping.value()).contains("/api/admin/insights/generate"));
+        assertTrue(List.of(getMapping.value()).contains("/api/admin/insights"));
     }
 }

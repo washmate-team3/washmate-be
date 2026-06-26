@@ -14,14 +14,14 @@ import swp391.carwash.service.AiInsightGenerationService;
 public class AdminAiInsightController {
     private final AiInsightGenerationService aiInsightGenerationService;
 
-    @PostMapping("/api/admin/ai/insights/generate")
+    @PostMapping("/api/admin/insights/generate")
     public List<CustomerAiInsightAdminResponse> generateInsights(
             @RequestParam Integer garageId,
             @RequestParam String period) {
         return aiInsightGenerationService.generateInsights(garageId, period);
     }
 
-    @GetMapping("/api/admin/ai/insights")
+    @GetMapping("/api/admin/insights")
     public List<CustomerAiInsightAdminResponse> getInsights(
             @RequestParam Integer garageId,
             @RequestParam String period) {
