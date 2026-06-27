@@ -22,4 +22,6 @@ public interface BookingSlotRepository extends JpaRepository<BookingSlot, Intege
 
     // Tìm các khung giờ đang hoạt động (ACTIVE) của một Garage
     List<BookingSlot> findByGarageIdAndStatus(Integer garageId, RecordStatus status);
+
+    List<BookingSlot> findByGarageIdAndStatusOrderByStartTimeAsc(Integer garageId, RecordStatus status);
 }
