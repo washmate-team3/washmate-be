@@ -22,7 +22,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.Arrays;
 import java.util.List;
 
-@Configuration
+@Configuration(proxyBeanMethods = false)
 @EnableMethodSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
@@ -77,6 +77,7 @@ public class SecurityConfig {
     private boolean isPublicAuthPath(String path) {
         return path.equals("/api/auth/register")
                 || path.equals("/api/auth/login")
+                || path.equals("/api/auth/google")
                 || path.equals("/api/auth/otp/request")
                 || path.equals("/api/auth/otp/verify")
                 || path.equals("/api/auth/refresh")

@@ -6,6 +6,7 @@ import java.util.HashSet;
 import java.util.Set;
 import lombok.*;
 import swp391.carwash.common.domain.AuditableEntity;
+import swp391.carwash.enums.AuthProvider;
 import swp391.carwash.enums.UserStatus;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
@@ -24,8 +25,13 @@ public class AppUser extends AuditableEntity {
     @Column(name = "full_name", nullable = false)
     private String fullName;
 
-    @Column(nullable = false, unique = true, length = 20)
+    @Column(unique = true)
     private String phone;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private AuthProvider provider = AuthProvider.LOCAL;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)

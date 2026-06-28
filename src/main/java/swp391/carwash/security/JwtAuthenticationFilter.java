@@ -5,7 +5,6 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,15 +16,27 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import swp391.carwash.common.exception.ApiException;
 
 @Component
-@RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final AppUserDetailsService userDetailsService;
     private final SecurityErrorResponseWriter securityErrorResponseWriter;
 
+    public JwtAuthenticationFilter(
+            JwtService jwtService,
+            AppUserDetailsService userDetailsService,
+            SecurityErrorResponseWriter securityErrorResponseWriter) {
+        this.jwtService = jwtService;
+        this.userDetailsService = userDetailsService;
+        this.securityErrorResponseWriter = securityErrorResponseWriter;
+    }
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getServletPath();
+        String path = request.getRequestURI();
+        String contextPath = request.getContextPath();
+        if (contextPath != null && !contextPath.isBlank() && path.startsWith(contextPath)) {
+            path = path.substring(contextPath.length());
+        }
         return path.equals("/")
                 || path.equals("/api/health")
                 || path.equals("/actuator/health")
@@ -37,6 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private boolean isPublicAuthPath(String path) {
         return path.equals("/api/auth/register")
                 || path.equals("/api/auth/login")
+                || path.equals("/api/auth/google")
                 || path.equals("/api/auth/otp/request")
                 || path.equals("/api/auth/otp/verify")
                 || path.equals("/api/auth/refresh")

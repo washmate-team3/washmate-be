@@ -20,6 +20,8 @@ import swp391.carwash.enums.UserStatus;
 import swp391.carwash.repository.AppUserRepository;
 import swp391.carwash.repository.RoleRepository;
 import swp391.carwash.repository.UserRoleRepository;
+import swp391.carwash.enums.AuthProvider;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 
 @Service
 @RequiredArgsConstructor
@@ -30,6 +32,7 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final OtpService otpService;
     private final TokenService tokenService;
+    private final GoogleAuthService googleAuthService;
 
     @Value("${washmate.security.login.max-failed-attempts:5}")
     private int loginMaxFailedAttempts;
@@ -105,6 +108,46 @@ public class AuthService {
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
         user.setLastLoginAt(now);
+        return tokenService.issueTokens(user.getId());
+    }
+
+    @Transactional
+    public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
+        GoogleIdToken.Payload payload = googleAuthService.verifyIdToken(request.getIdToken());
+        String email = normalizeEmail(payload.getEmail());
+        
+        AppUser user = appUserRepository.findByEmailIgnoreCase(email).orElse(null);
+        OffsetDateTime now = OffsetDateTime.now();
+
+        if (user == null) {
+            // Đăng ký mới qua Google
+            String name = (String) payload.get("name");
+            if (name == null || name.isBlank()) name = email.split("@")[0];
+
+            user = AppUser.builder()
+                    .email(email)
+                    .fullName(name)
+                    .status(UserStatus.ACTIVE)
+                    .provider(AuthProvider.GOOGLE)
+                    .passwordHash("") // Không có password
+                    .build();
+            appUserRepository.save(user);
+            assignRole(user, RoleName.CUSTOMER);
+        } else {
+            // User đã tồn tại
+            if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
+                throw new ApiException(HttpStatus.LOCKED, "Account is temporarily locked");
+            }
+            ensureActiveForLogin(user);
+            
+            // Nếu user trước đó đăng ký bằng LOCAL, có thể update provider thành GOOGLE hoặc giữ nguyên.
+            // Ở đây giữ nguyên, chỉ cho phép đăng nhập thành công.
+            user.setFailedLoginCount(0);
+            user.setLockedUntil(null);
+            user.setLastLoginAt(now);
+            appUserRepository.save(user);
+        }
+
         return tokenService.issueTokens(user.getId());
     }
 

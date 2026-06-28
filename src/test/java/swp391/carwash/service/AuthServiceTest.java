@@ -43,12 +43,14 @@ class AuthServiceTest {
     private OtpService otpService;
     @Mock
     private TokenService tokenService;
+    @Mock
+    private GoogleAuthService googleAuthService;
 
     private AuthService authService;
 
     @BeforeEach
     void setUp() {
-        authService = new AuthService(appUserRepository, roleRepository, userRoleRepository, passwordEncoder, otpService, tokenService);
+        authService = new AuthService(appUserRepository, roleRepository, userRoleRepository, passwordEncoder, otpService, tokenService, googleAuthService);
         ReflectionTestUtils.setField(authService, "loginMaxFailedAttempts", 3);
         ReflectionTestUtils.setField(authService, "loginLockMinutes", 15L);
     }
