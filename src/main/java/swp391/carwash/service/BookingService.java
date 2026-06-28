@@ -66,7 +66,6 @@ public class BookingService {
 
         BigDecimal totalAmount = service.getPrice();
         Promotion promotion = null;
-
         // 1. Tạo một biến tạm thời để tính toán, chưa chốt discountAmount vội
         BigDecimal calculatedDiscount = BigDecimal.ZERO;
 
@@ -82,6 +81,9 @@ public class BookingService {
                     totalAmount.compareTo(promotion.getMinOrderValue()) < 0) {
 
                 throw new ApiException(HttpStatus.BAD_REQUEST, "Mã khuyến mãi không hợp lệ hoặc đã hết hạn");
+            }
+            if (!promotion.getGarageId().equals(garage.getId())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Mã khuyến mãi không áp dụng cho garage này");
             }
 
             if ("PERCENTAGE".equals(promotion.getDiscountType())) {
@@ -171,7 +173,7 @@ public class BookingService {
                 return Page.empty(pageable);
             }
         }
-        
+
         Page<Booking> bookingPage = bookingRepository.findBookingsWithFilters(status, garageId, fromDate, toDate, garageIds, pageable);
         if (bookingPage.isEmpty()) {
             return Page.empty(pageable);
@@ -194,13 +196,13 @@ public class BookingService {
     @Transactional
     public BookingResponse updateBooking(Integer bookingId, BookingUpdateRequest request, AppUserDetails principal) {
         Booking booking = findDetailedBooking(bookingId);
-        
+
         boolean isOwner = booking.getUser().getId().equals(principal.getId());
         boolean isStaff = canOperateGarage(booking, principal);
         if (!isOwner && !isStaff) {
             throw new ApiException(HttpStatus.FORBIDDEN, "You cannot update this booking");
         }
-        
+
         if (!isOwner && isStaff && !booking.getGarage().getId().equals(request.garageId())) {
             List<String> roles = principal.getRoleNames();
             if (!roles.contains("ADMIN") && !roles.contains("OWNER")) {
@@ -220,7 +222,7 @@ public class BookingService {
             throw new ApiException(HttpStatus.CONFLICT, "Cannot update booking because payment is not PENDING");
         }
 
-        Garage newGarage = booking.getGarage().getId().equals(request.garageId()) ? booking.getGarage() : 
+        Garage newGarage = booking.getGarage().getId().equals(request.garageId()) ? booking.getGarage() :
                 garageRepository.findById(request.garageId()).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Garage not found"));
         BookingSlot newSlot = booking.getSlot().getId().equals(request.slotId()) ? booking.getSlot() :
                 bookingSlotRepository.findByIdForUpdate(request.slotId()).orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Booking slot not found"));
@@ -266,7 +268,7 @@ public class BookingService {
         BigDecimal newFinal = newTotal.subtract(booking.getDiscountAmount());
         booking.setTotalAmount(newTotal);
         booking.setFinalAmount(newFinal);
-        
+
         payment.setAmount(newFinal);
         payment.setGarage(newGarage);
         payment.setUpdatedAt(OffsetDateTime.now());
