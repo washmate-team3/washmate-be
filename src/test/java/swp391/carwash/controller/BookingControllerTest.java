@@ -81,12 +81,13 @@ public class BookingControllerTest {
 
     @Test
     void testCreateBookingSuccess() throws Exception {
+        String bookingDate = java.time.LocalDate.now().plusDays(1).toString();
         String requestJson = "{\n" +
                 "  \"garageId\": 1,\n" +
                 "  \"slotId\": 5,\n" +
                 "  \"serviceId\": 2,\n" +
                 "  \"vehicleId\": 10,\n" +
-                "  \"bookingDate\": \"2026-06-22\",\n" +
+                "  \"bookingDate\": \"" + bookingDate + "\",\n" +
                 "  \"discountAmount\": 0,\n" +
                 "  \"paymentMethod\": \"CASH\"\n" +
                 "}";

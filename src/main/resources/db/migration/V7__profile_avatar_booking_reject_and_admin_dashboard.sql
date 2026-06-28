@@ -1,0 +1,14 @@
+ALTER TABLE app_user
+    ADD COLUMN IF NOT EXISTS address VARCHAR(500);
+
+ALTER TABLE app_user
+    ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(1000);
+
+ALTER TABLE booking
+    ADD COLUMN IF NOT EXISTS rejection_reason VARCHAR(500);
+
+ALTER TABLE booking DROP CONSTRAINT IF EXISTS booking_status_check;
+
+ALTER TABLE booking
+    ADD CONSTRAINT booking_status_check
+    CHECK (status IN ('PENDING','CONFIRMED','CHECKED_IN','WASHING','COMPLETED','REJECTED','CANCELLED','NO_SHOW'));

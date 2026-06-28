@@ -79,6 +79,8 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
                         @Param("bookingDate") LocalDate bookingDate,
                         @Param("statuses") Collection<BookingStatus> statuses);
 
+        long countByStatus(BookingStatus status);
+
         @Query("""
                         SELECT count(b.id)
                         FROM Booking b

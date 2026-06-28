@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.dto.BookingCreateRequest;
+import swp391.carwash.dto.BookingRejectRequest;
 import swp391.carwash.dto.BookingResponse;
 import swp391.carwash.dto.BookingUpdateRequest;
 import swp391.carwash.entity.*;
@@ -258,6 +259,28 @@ public class BookingService {
         booking.setStatus(BookingStatus.CONFIRMED);
         booking.setConfirmedAt(OffsetDateTime.now());
         return responseWithPaymentAndInvoice(booking);
+    }
+
+    @Transactional
+    public BookingResponse rejectBooking(Integer bookingId, BookingRejectRequest request, AppUserDetails principal) {
+        Booking booking = findDetailedBooking(bookingId);
+        authorizeGarageOperation(booking, principal);
+        requireStatus(booking, BookingStatus.PENDING, "Only PENDING booking can be rejected");
+
+        OffsetDateTime now = OffsetDateTime.now();
+        booking.setStatus(BookingStatus.REJECTED);
+        booking.setCancelledAt(now);
+        booking.setRejectionReason(request.reason());
+
+        Payment payment = paymentRepository.findByBookingId(bookingId).orElse(null);
+        if (payment != null && payment.getStatus() == PaymentStatus.PENDING) {
+            payment.setStatus(PaymentStatus.CANCELLED);
+            payment.setUpdatedAt(now);
+            recordPaymentTransaction(payment, PaymentTransactionStatus.CANCELLED, "MANUAL", null);
+        }
+
+        Invoice invoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
+        return BookingResponse.from(booking, payment, invoice);
     }
 
     @Transactional

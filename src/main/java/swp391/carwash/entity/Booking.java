@@ -75,6 +75,9 @@ public class Booking extends AuditableEntity {
     @Column(name = "cancelled_at")
     private OffsetDateTime cancelledAt;
 
+    @Column(name = "rejection_reason", length = 500)
+    private String rejectionReason;
+
     @Column(name = "no_show_at")
     private OffsetDateTime noShowAt;
 }

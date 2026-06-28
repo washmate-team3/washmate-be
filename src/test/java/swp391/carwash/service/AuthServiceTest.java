@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -16,6 +17,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.dto.AuthResponse;
+import swp391.carwash.dto.GoogleLoginRequest;
 import swp391.carwash.dto.LoginRequest;
 import swp391.carwash.dto.OtpResponse;
 import swp391.carwash.dto.OtpVerifyRequest;
@@ -133,6 +135,31 @@ class AuthServiceTest {
 
         assertEquals(expected, response);
         assertEquals(UserStatus.ACTIVE, user.getStatus());
+    }
+
+    @Test
+    void googleLoginActivatesPendingUserAndIssuesTokens() {
+        GoogleIdToken.Payload payload = new GoogleIdToken.Payload();
+        payload.setEmail("USER@example.com");
+        payload.setEmailVerified(true);
+        AppUser user = AppUser.builder()
+                .id(10)
+                .email("user@example.com")
+                .status(UserStatus.PENDING_VERIFY)
+                .failedLoginCount(1)
+                .build();
+        AuthResponse expected = new AuthResponse("access", "refresh", "Bearer", 3600, null);
+        when(googleAuthService.verifyIdToken("google-id-token")).thenReturn(payload);
+        when(appUserRepository.findByEmailIgnoreCase("user@example.com")).thenReturn(Optional.of(user));
+        when(tokenService.issueTokens(10)).thenReturn(expected);
+
+        AuthResponse response = authService.loginWithGoogle(new GoogleLoginRequest("google-id-token"));
+
+        assertEquals(expected, response);
+        assertEquals(UserStatus.ACTIVE, user.getStatus());
+        assertEquals(0, user.getFailedLoginCount());
+        org.junit.jupiter.api.Assertions.assertNotNull(user.getLastLoginAt());
+        verify(appUserRepository).save(user);
     }
 
     @Test

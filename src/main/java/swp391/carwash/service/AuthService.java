@@ -129,6 +129,7 @@ public class AuthService {
                     .fullName(name)
                     .status(UserStatus.ACTIVE)
                     .provider(AuthProvider.GOOGLE)
+                    .lastLoginAt(now)
                     .passwordHash("") // Không có password
                     .build();
             appUserRepository.save(user);
@@ -138,7 +139,10 @@ public class AuthService {
             if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
                 throw new ApiException(HttpStatus.LOCKED, "Account is temporarily locked");
             }
-            ensureActiveForLogin(user);
+            if (user.getStatus() == UserStatus.PENDING_VERIFY) {
+                user.setStatus(UserStatus.ACTIVE);
+            }
+            ensureActive(user);
             
             // Nếu user trước đó đăng ký bằng LOCAL, có thể update provider thành GOOGLE hoặc giữ nguyên.
             // Ở đây giữ nguyên, chỉ cho phép đăng nhập thành công.

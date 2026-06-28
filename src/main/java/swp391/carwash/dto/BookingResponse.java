@@ -20,6 +20,7 @@ public record BookingResponse(
         OffsetDateTime checkinTime,
         OffsetDateTime serviceStartTime,
         OffsetDateTime completedTime,
+        String rejectionReason,
         UserInfo customer,
         GarageInfo garage,
         SlotInfo slot,
@@ -28,6 +29,49 @@ public record BookingResponse(
         PaymentInfo payment,
         InvoiceInfo invoice
 ) {
+    public BookingResponse(
+            Integer id,
+            String bookingCode,
+            String status,
+            LocalDate bookingDate,
+            BigDecimal totalAmount,
+            BigDecimal discountAmount,
+            BigDecimal finalAmount,
+            OffsetDateTime confirmedAt,
+            OffsetDateTime checkinTime,
+            OffsetDateTime serviceStartTime,
+            OffsetDateTime completedTime,
+            UserInfo customer,
+            GarageInfo garage,
+            SlotInfo slot,
+            ServiceInfo service,
+            VehicleInfo vehicle,
+            PaymentInfo payment,
+            InvoiceInfo invoice
+    ) {
+        this(
+                id,
+                bookingCode,
+                status,
+                bookingDate,
+                totalAmount,
+                discountAmount,
+                finalAmount,
+                confirmedAt,
+                checkinTime,
+                serviceStartTime,
+                completedTime,
+                null,
+                customer,
+                garage,
+                slot,
+                service,
+                vehicle,
+                payment,
+                invoice
+        );
+    }
+
     public static BookingResponse from(Booking booking, Payment payment, Invoice invoice) {
         return new BookingResponse(
                 booking.getId(),
@@ -41,6 +85,7 @@ public record BookingResponse(
                 booking.getCheckinTime(),
                 booking.getServiceStartTime(),
                 booking.getCompletedTime(),
+                booking.getRejectionReason(),
                 new UserInfo(booking.getUser().getId(), booking.getUser().getFullName(), booking.getUser().getEmail(), booking.getUser().getPhone()),
                 new GarageInfo(booking.getGarage().getId(), booking.getGarage().getName()),
                 new SlotInfo(booking.getSlot().getId(), booking.getSlot().getStartTime(), booking.getSlot().getEndTime()),

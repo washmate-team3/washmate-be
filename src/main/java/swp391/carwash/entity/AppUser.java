@@ -28,6 +28,12 @@ public class AppUser extends AuditableEntity {
     @Column(unique = true)
     private String phone;
 
+    @Column(length = 500)
+    private String address;
+
+    @Column(name = "avatar_url", length = 1000)
+    private String avatarUrl;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

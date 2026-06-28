@@ -30,6 +30,8 @@ public interface PaymentRepository extends JpaRepository<Payment, Integer> {
 
     List<Payment> findByBookingIdIn(List<Integer> bookingIds);
 
+    long countByStatus(PaymentStatus status);
+
     @Query("""
             select payment.id from Payment payment
             where payment.method = :method

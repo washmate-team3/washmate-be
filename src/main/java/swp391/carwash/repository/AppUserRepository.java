@@ -2,11 +2,11 @@ package swp391.carwash.repository;
 
 import java.util.Optional;
 
-import org.apache.catalina.User;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 import swp391.carwash.entity.AppUser;
+import swp391.carwash.enums.UserStatus;
 
 @Repository
 public interface AppUserRepository extends JpaRepository<AppUser, Integer> {
@@ -21,6 +21,7 @@ public interface AppUserRepository extends JpaRepository<AppUser, Integer> {
 
     boolean existsByEmailIgnoreCase(String email);
     boolean existsByPhone(String phone);
+    long countByStatus(UserStatus status);
 
     @EntityGraph(attributePaths = {"userRoles", "userRoles.role", "userRoles.garage"})
     org.springframework.data.domain.Page<AppUser> findAll(org.springframework.data.domain.Pageable pageable);

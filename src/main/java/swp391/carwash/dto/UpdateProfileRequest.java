@@ -4,6 +4,10 @@ import jakarta.validation.constraints.NotBlank;
 
 public record UpdateProfileRequest(
         @NotBlank String fullName,
-        @NotBlank String phone
+        String phone,
+        String address
 ) {
+    public UpdateProfileRequest(String fullName, String phone) {
+        this(fullName, phone, null);
+    }
 }

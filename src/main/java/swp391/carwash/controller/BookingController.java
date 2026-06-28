@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import swp391.carwash.dto.BookingCreateRequest;
+import swp391.carwash.dto.BookingRejectRequest;
 import swp391.carwash.dto.BookingResponse;
 import swp391.carwash.dto.BookingUpdateRequest;
 import swp391.carwash.enums.BookingStatus;
@@ -64,6 +65,14 @@ public class BookingController {
             @PathVariable Integer id,
             @AuthenticationPrincipal AppUserDetails principal) {
         return bookingService.confirmBooking(id, principal);
+    }
+
+    @PostMapping("/api/bookings/{id}/reject")
+    public BookingResponse rejectBooking(
+            @PathVariable Integer id,
+            @Valid @RequestBody BookingRejectRequest request,
+            @AuthenticationPrincipal AppUserDetails principal) {
+        return bookingService.rejectBooking(id, request, principal);
     }
 
     @PostMapping("/api/bookings/{id}/check-in")
