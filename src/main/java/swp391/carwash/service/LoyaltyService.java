@@ -56,7 +56,7 @@ public class LoyaltyService {
         LoyaltyAccount account = loyaltyAccountRepository.findByUserIdAndGarageId(booking.getUser().getId(), booking.getGarage().getId())
                 .orElseGet(() -> {
                     MembershipTier tier = membershipTierRepository.findFirstByGarageIdAndStatusOrderByMinPointsAsc(booking.getGarage().getId(), RecordStatus.ACTIVE)
-                            .orElseThrow(() -> new IllegalStateException("No membership tier found"));
+                            .orElse(null);
                     LoyaltyAccount newAccount = LoyaltyAccount.builder()
                             .user(booking.getUser())
                             .garage(booking.getGarage())

@@ -140,7 +140,7 @@ public class VnpayService {
         }
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public URI buildReturnRedirect(Map<String, String> callbackParameters) {
         String result = "invalid";
         Integer paymentId = null;
@@ -153,6 +153,18 @@ public class VnpayService {
             if (attempt != null) {
                 paymentId = attempt.getPayment().getId();
                 result = isSuccessfulCallback(callbackParameters) ? "success" : "failed";
+                
+                // Fallback for local testing when IPN cannot reach localhost
+                if (attempt.getStatus() == PaymentTransactionStatus.PENDING) {
+                    try {
+                        VnpayIpnResponse fallbackResponse = processVerifiedIpn(callbackParameters);
+                        if (!"00".equals(fallbackResponse.rspCode())) {
+                            System.err.println("Fallback IPN failed with code: " + fallbackResponse.rspCode() + " - " + fallbackResponse.message());
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
             }
         }
 

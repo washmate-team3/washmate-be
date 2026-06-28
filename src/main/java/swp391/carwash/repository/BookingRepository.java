@@ -1,7 +1,7 @@
 package swp391.carwash.repository;
 
 import java.time.LocalDate;
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -81,6 +81,20 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
       @Param("statuses") Collection<BookingStatus> statuses);
 
   long countByStatus(BookingStatus status);
+
+  @EntityGraph(attributePaths = { "user", "slot" })
+  @Query("""
+      SELECT b FROM Booking b
+      WHERE b.reminderSent = false
+        AND b.status IN (swp391.carwash.enums.BookingStatus.PENDING, swp391.carwash.enums.BookingStatus.CONFIRMED)
+        AND b.bookingDate = CAST(:date AS java.time.LocalDate)
+        AND b.slot.startTime >= CAST(:startTime AS java.time.LocalTime)
+        AND b.slot.startTime < CAST(:endTime AS java.time.LocalTime)
+      """)
+  List<Booking> findBookingNeedReminder(
+      @Param("date") LocalDateTime date,
+      @Param("startTime") LocalDateTime startTime,
+      @Param("endTime") LocalDateTime endTime);
 
   @Query("""
       SELECT count(b.id)
