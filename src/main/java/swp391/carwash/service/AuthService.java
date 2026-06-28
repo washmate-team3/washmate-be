@@ -3,6 +3,8 @@ package swp391.carwash.service;
 import java.time.OffsetDateTime;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -17,15 +19,17 @@ import swp391.carwash.entity.UserRole;
 import swp391.carwash.enums.RecordStatus;
 import swp391.carwash.enums.RoleName;
 import swp391.carwash.enums.UserStatus;
+import swp391.carwash.enums.AuthProvider;
 import swp391.carwash.repository.AppUserRepository;
 import swp391.carwash.repository.RoleRepository;
 import swp391.carwash.repository.UserRoleRepository;
-import swp391.carwash.enums.AuthProvider;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
+
     private final AppUserRepository appUserRepository;
     private final RoleRepository roleRepository;
     private final UserRoleRepository userRoleRepository;
@@ -42,6 +46,10 @@ public class AuthService {
 
     @Transactional
     public OtpResponse register(RegisterRequest request) {
+        if (request.hasRequestedRole()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Đăng ký công khai chỉ cho phép với vai trò CUSTOMER");
+        }
+
         String email = normalizeEmail(request.email());
         AppUser existingUser = appUserRepository.findByEmailIgnoreCase(email).orElse(null);
 
@@ -66,6 +74,7 @@ public class AuthService {
                 appUserRepository.save(existingUser);
                 
                 otpService.requestOtp(email);
+                log.info("Re-registration for pending account: email={}", email);
                 return new OtpResponse(email, null, "Đã gửi lại mã OTP");
             }
         }
@@ -86,28 +95,33 @@ public class AuthService {
         assignRole(user, RoleName.CUSTOMER);
         otpService.requestOtp(email);
         
+        log.info("New user registered: email={}, userId={}", email, user.getId());
         return new OtpResponse(email, null, "Đã gửi mã OTP");
     }
 
     @Transactional
     public AuthResponse login(LoginRequest request) {
         AppUser user = findUserByIdentifier(request.identifier())
-                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Invalid credentials"));
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Tài khoản hoặc mật khẩu không chính xác"));
         OffsetDateTime now = OffsetDateTime.now();
 
         if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
-            throw new ApiException(HttpStatus.LOCKED, "Account is temporarily locked");
+            log.warn("Login attempt on locked account: userId={}", user.getId());
+            throw new ApiException(HttpStatus.LOCKED, "Tài khoản đang bị tạm khóa");
         }
 
         if (!StringUtils.hasText(user.getPasswordHash()) || !passwordEncoder.matches(request.password(), user.getPasswordHash())) {
             recordFailedLogin(user, now);
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+            log.warn("Failed login attempt: userId={}, failedCount={}", user.getId(), user.getFailedLoginCount());
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Tài khoản hoặc mật khẩu không chính xác");
         }
 
         ensureActiveForLogin(user);
         user.setFailedLoginCount(0);
         user.setLockedUntil(null);
         user.setLastLoginAt(now);
+        appUserRepository.save(user);
+        log.info("Login successful: userId={}", user.getId());
         return tokenService.issueTokens(user.getId());
     }
 
@@ -134,22 +148,22 @@ public class AuthService {
                     .build();
             appUserRepository.save(user);
             assignRole(user, RoleName.CUSTOMER);
+            log.info("New Google user registered: email={}, userId={}", email, user.getId());
         } else {
             // User đã tồn tại
             if (user.getLockedUntil() != null && user.getLockedUntil().isAfter(now)) {
-                throw new ApiException(HttpStatus.LOCKED, "Account is temporarily locked");
+                throw new ApiException(HttpStatus.LOCKED, "Tài khoản đang bị tạm khóa");
             }
             if (user.getStatus() == UserStatus.PENDING_VERIFY) {
                 user.setStatus(UserStatus.ACTIVE);
             }
             ensureActive(user);
             
-            // Nếu user trước đó đăng ký bằng LOCAL, có thể update provider thành GOOGLE hoặc giữ nguyên.
-            // Ở đây giữ nguyên, chỉ cho phép đăng nhập thành công.
             user.setFailedLoginCount(0);
             user.setLockedUntil(null);
             user.setLastLoginAt(now);
             appUserRepository.save(user);
+            log.info("Google login successful: userId={}", user.getId());
         }
 
         return tokenService.issueTokens(user.getId());
@@ -159,7 +173,7 @@ public class AuthService {
     public OtpResponse requestOtp(OtpRequest request) {
         String email = otpService.resolveEmailIdentifier(request.identifier());
         otpService.requestOtp(email);
-        return new OtpResponse(email, null, "OTP requested");
+        return new OtpResponse(email, null, "Đã gửi mã xác thực (OTP)");
     }
 
     @Transactional
@@ -169,6 +183,8 @@ public class AuthService {
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Tài khoản không tồn tại hoặc chưa đăng ký"));
         if (user.getStatus() == UserStatus.PENDING_VERIFY) {
             user.setStatus(UserStatus.ACTIVE);
+            appUserRepository.save(user);
+            log.info("Account verified via OTP: userId={}, email={}", user.getId(), email);
         }
         ensureActive(user);
         return tokenService.issueTokens(user.getId());
@@ -190,6 +206,7 @@ public class AuthService {
         
         String email = otpService.resolveEmailIdentifier(request.identifier());
         otpService.requestOtp(email);
+        log.info("Forgot password OTP requested: userId={}", user.getId());
         return new OtpResponse(email, null, "Đã gửi mã xác thực (OTP) qua email");
     }
 
@@ -202,7 +219,9 @@ public class AuthService {
         
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         appUserRepository.save(user);
+        tokenService.revokeAllTokensForUser(user.getId());
         
+        log.info("Password reset successful: userId={}", user.getId());
         return tokenService.issueTokens(user.getId());
     }
 
@@ -211,6 +230,10 @@ public class AuthService {
         AppUser user = appUserRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Tài khoản không tồn tại"));
         ensureActive(user);
+
+        if (user.getProvider() == AuthProvider.GOOGLE && !StringUtils.hasText(user.getPasswordHash())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Tài khoản Google không hỗ trợ đổi mật khẩu");
+        }
         
         if (!passwordEncoder.matches(request.oldPassword(), user.getPasswordHash())) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Mật khẩu cũ không chính xác");
@@ -218,6 +241,8 @@ public class AuthService {
         
         user.setPasswordHash(passwordEncoder.encode(request.newPassword()));
         appUserRepository.save(user);
+        tokenService.revokeAllTokensForUser(user.getId());
+        log.info("Password changed: userId={}", userId);
     }
 
     private void assignRole(AppUser user, RoleName roleName) {
@@ -232,20 +257,20 @@ public class AuthService {
 
     private void ensureActive(AppUser user) {
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "User is not active");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Tài khoản chưa được kích hoạt");
         }
     }
 
     private void ensureActiveForLogin(AppUser user) {
         if (user.getStatus() == UserStatus.PENDING_VERIFY) {
-            throw new ApiException(HttpStatus.FORBIDDEN, "Account verification required");
+            throw new ApiException(HttpStatus.FORBIDDEN, "Tài khoản cần được xác thực");
         }
         ensureActive(user);
     }
 
     private java.util.Optional<AppUser> findUserByIdentifier(String rawIdentifier) {
         if (!StringUtils.hasText(rawIdentifier)) {
-            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid credentials");
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Tài khoản hoặc mật khẩu không chính xác");
         }
         String identifier = rawIdentifier.trim();
         if (identifier.contains("@")) {
@@ -259,6 +284,7 @@ public class AuthService {
         user.setFailedLoginCount(failedCount);
         if (failedCount >= loginMaxFailedAttempts) {
             user.setLockedUntil(now.plusMinutes(loginLockMinutes));
+            log.warn("Account locked after {} failed attempts: userId={}", failedCount, user.getId());
         }
     }
 

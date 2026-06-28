@@ -9,6 +9,8 @@ public record LoginRequest(
         @NotBlank String password
 ) {
     public String identifier() {
-        return StringUtils.hasText(emailOrPhone) ? emailOrPhone : email;
+        if (StringUtils.hasText(emailOrPhone)) return emailOrPhone;
+        if (StringUtils.hasText(email)) return email;
+        return null;
     }
 }

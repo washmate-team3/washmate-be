@@ -42,6 +42,12 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.CONFLICT, "Database operation failed");
     }
 
+    @ExceptionHandler(Exception.class)
+    ResponseEntity<Map<String, Object>> handleUnexpected(Exception ex) {
+        log.error("Unexpected error", ex);
+        return error(HttpStatus.INTERNAL_SERVER_ERROR, "Internal server error");
+    }
+
     private String formatFieldError(FieldError error) {
         return error.getField() + ": " + error.getDefaultMessage();
     }

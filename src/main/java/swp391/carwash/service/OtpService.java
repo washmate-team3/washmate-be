@@ -51,7 +51,7 @@ public class OtpService {
         if (otpCode != null) {
             long secondsSince = java.time.temporal.ChronoUnit.SECONDS.between(
                 otpCode.getCreatedAt(), OffsetDateTime.now());
-            if (secondsSince < 60) {
+            if (secondsSince < otpResendCooldownSeconds) {
                 throw new swp391.carwash.common.exception.TooManyRequestsException("Vui lòng chờ 60 giây trước khi gửi lại");
             }
         } else {
@@ -66,7 +66,7 @@ public class OtpService {
 
         // 3. Cập nhật và lưu DB
         otpCode.setCode(passwordEncoder.encode(rawOtp));
-        otpCode.setExpiresAt(OffsetDateTime.now().plusSeconds(300));
+        otpCode.setExpiresAt(OffsetDateTime.now().plusMinutes(otpTtlMinutes));
         otpCode.setFailedAttempts(0);
         otpCode.setCreatedAt(OffsetDateTime.now());
         otpCodeRepository.save(otpCode);

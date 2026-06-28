@@ -45,7 +45,9 @@ public class SecurityConfig {
                         .requestMatchers(this::isPublicRequest).permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/payments/vnpay/ipn",
-                                "/api/payments/vnpay/return").permitAll()
+                                "/api/payments/vnpay/return",
+                                "/api/v1/garages",
+                                "/api/v1/garages/**").permitAll()
                         .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "OWNER")
                         .anyRequest().authenticated()
                 )
@@ -60,39 +62,9 @@ public class SecurityConfig {
     }
 
     private boolean isPublicRequest(HttpServletRequest request) {
-        String contextPath = request.getContextPath();
-        String path = request.getRequestURI();
-        if (contextPath != null && !contextPath.isBlank() && path.startsWith(contextPath)) {
-            path = path.substring(contextPath.length());
-        }
-        return path.equals("/")
-                || path.equals("/api/health")
-                || isPublicAuthPath(path)
-                || path.equals("/actuator/health")
-                || path.equals("/error")
-                || path.equals("/favicon.ico")
-                || (docsEnabled && isDocsRequest(path));
-    }
-
-    private boolean isPublicAuthPath(String path) {
-        return path.equals("/api/auth/register")
-                || path.equals("/api/auth/login")
-                || path.equals("/api/auth/google")
-                || path.equals("/api/auth/otp/request")
-                || path.equals("/api/auth/otp/verify")
-                || path.equals("/api/auth/refresh")
-                || path.equals("/api/auth/logout")
-                || path.equals("/api/auth/password/forgot")
-                || path.equals("/api/auth/password/reset");
-    }
-
-    private boolean isDocsRequest(String path) {
-        return path.equals("/swagger-ui.html")
-                || path.startsWith("/swagger-ui/")
-                || path.equals("/v3/api-docs")
-                || path.startsWith("/v3/api-docs/")
-                || path.startsWith("/webjars/")
-                || path.startsWith("/swagger-resources/");
+        String path = PublicPaths.stripContextPath(request.getRequestURI(), request.getContextPath());
+        return PublicPaths.isPublicPath(path)
+                || (docsEnabled && PublicPaths.isDocsPath(path));
     }
 
     @Bean

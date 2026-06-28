@@ -1,5 +1,6 @@
 package swp391.carwash.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import org.springframework.util.StringUtils;
@@ -21,5 +22,12 @@ public record OtpVerifyRequest(
             return email;
         }
         return phone;
+    }
+
+    @AssertTrue(message = "emailOrPhone, email, or phone is required")
+    private boolean isIdentifierPresent() {
+        return StringUtils.hasText(emailOrPhone)
+                || StringUtils.hasText(email)
+                || StringUtils.hasText(phone);
     }
 }

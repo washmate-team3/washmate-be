@@ -6,6 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,7 +60,7 @@ class AuthServiceTest {
 
     @Test
     void registerCreatesPendingUserAndRequestsEmailOtp() {
-        RegisterRequest request = new RegisterRequest("USER@example.com", "secret123", "User", "0911111111");
+        RegisterRequest request = new RegisterRequest("USER@example.com", "secret123", "User", "0911111111", null, null);
         when(passwordEncoder.encode("secret123")).thenReturn("hash");
         when(roleRepository.findByRoleName(RoleName.CUSTOMER)).thenReturn(Optional.of(Role.builder()
                 .id(1)
@@ -79,6 +80,22 @@ class AuthServiceTest {
     }
 
     @Test
+    void registerRejectsRequestedRole() {
+        RegisterRequest request = new RegisterRequest(
+                "user@example.com",
+                "secret123",
+                "User",
+                "0911111111",
+                "ADMIN",
+                List.of("STAFF"));
+
+        ApiException exception = assertThrows(ApiException.class, () -> authService.register(request));
+
+        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
+        assertEquals("Đăng ký công khai chỉ cho phép với vai trò CUSTOMER", exception.getMessage());
+    }
+
+    @Test
     void loginRejectsPendingVerificationUser() {
         AppUser user = AppUser.builder()
                 .id(10)
@@ -94,7 +111,7 @@ class AuthServiceTest {
                 () -> authService.login(new LoginRequest("user@example.com", null, "secret123")));
 
         assertEquals(HttpStatus.FORBIDDEN, exception.getStatus());
-        assertEquals("Account verification required", exception.getMessage());
+        assertEquals("Tài khoản cần được xác thực", exception.getMessage());
     }
 
     @Test

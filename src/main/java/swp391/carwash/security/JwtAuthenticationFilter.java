@@ -5,6 +5,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -17,6 +19,8 @@ import swp391.carwash.common.exception.ApiException;
 
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
+
     private final JwtService jwtService;
     private final AppUserDetailsService userDetailsService;
     private final SecurityErrorResponseWriter securityErrorResponseWriter;
@@ -32,29 +36,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        String path = request.getRequestURI();
-        String contextPath = request.getContextPath();
-        if (contextPath != null && !contextPath.isBlank() && path.startsWith(contextPath)) {
-            path = path.substring(contextPath.length());
-        }
-        return path.equals("/")
-                || path.equals("/api/health")
-                || path.equals("/actuator/health")
-                || path.equals("/api/payments/vnpay/ipn")
-                || path.equals("/api/payments/vnpay/return")
-                || isPublicAuthPath(path);
-    }
-
-    private boolean isPublicAuthPath(String path) {
-        return path.equals("/api/auth/register")
-                || path.equals("/api/auth/login")
-                || path.equals("/api/auth/google")
-                || path.equals("/api/auth/otp/request")
-                || path.equals("/api/auth/otp/verify")
-                || path.equals("/api/auth/refresh")
-                || path.equals("/api/auth/logout")
-                || path.equals("/api/auth/password/forgot")
-                || path.equals("/api/auth/password/reset");
+        String path = PublicPaths.stripContextPath(request.getRequestURI(), request.getContextPath());
+        return PublicPaths.isPublicPath(path);
     }
 
     @Override
@@ -82,6 +65,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } catch (ApiException | UsernameNotFoundException ex) {
             SecurityContextHolder.clearContext();
+            log.debug("JWT authentication failed for {}: {}", request.getRequestURI(), ex.getMessage());
             securityErrorResponseWriter.write(response, HttpStatus.UNAUTHORIZED, "Invalid or expired token");
         }
     }

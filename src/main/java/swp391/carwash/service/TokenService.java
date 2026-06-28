@@ -66,6 +66,11 @@ public class TokenService {
                 .ifPresent(token -> token.setRevokedAt(OffsetDateTime.now()));
     }
 
+    @Transactional
+    public void revokeAllTokensForUser(Integer userId) {
+        refreshTokenRepository.revokeAllActiveByUserId(userId, OffsetDateTime.now());
+    }
+
     private RefreshToken persistRefreshToken(AppUser user, String rawRefreshToken) {
         RefreshToken refreshToken = RefreshToken.builder()
                 .user(user)
