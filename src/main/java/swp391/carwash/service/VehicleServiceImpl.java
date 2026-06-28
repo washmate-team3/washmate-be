@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.carwash.common.exception.ApiException;
+import swp391.carwash.dto.request.vehicles.CreateMyVehicleRequest;
 import swp391.carwash.dto.request.vehicles.CreateVehicleRequest;
 import swp391.carwash.dto.request.vehicles.UpdateVehicleRequest;
 import swp391.carwash.dto.response.vehicles.VehicleResponse;
@@ -82,23 +83,34 @@ public class VehicleServiceImpl implements VehicleService{
         vehicle.setBrand(request.getBrand());
         vehicle.setModel(request.getModel());
         vehicle.setColor(request.getColor());
-        vehicle.setStatus(swp391.carwash.enums.RecordStatus.valueOf(request.getStatus()));
 
-        Vehicle updatedVehicle =vehicleRepository.save(vehicle);
+        // 🔥 SỬA CHỖ NÀY: Bọc try-catch để handle việc truyền sai tên Enum
+        if (request.getStatus() != null) {
+            try {
+                vehicle.setStatus(swp391.carwash.enums.RecordStatus.valueOf(request.getStatus().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                // Thay "RuntimeException" bằng Custom Exception của ông nếu có (ví dụ: BadRequestException)
+                throw new RuntimeException("Trạng thái '" + request.getStatus() + "' không hợp lệ. Chỉ chấp nhận ACTIVE hoặc INACTIVE.");
+            }
+        }
+
+        Vehicle updatedVehicle = vehicleRepository.save(vehicle);
 
         return mapToResponse(updatedVehicle);
     }
 
-
     @Override
     public void delete(Integer vehicleId) {
+        // 1. Tìm xe trong DB
         Vehicle vehicle = findVehicleById(vehicleId);
+
+        // 2. Chỉ cập nhật thông tin (Xóa mềm)
         vehicle.setStatus(swp391.carwash.enums.RecordStatus.DELETED);
-        vehicle.setDeletedAt(OffsetDateTime.now());
+        vehicle.setDeletedAt(java.time.OffsetDateTime.now());
 
-        vehicleRepository.delete(vehicle);
+        // 3. 🔥 ĐỔI THÀNH SAVE: Để Hibernate chạy lệnh UPDATE thay vì DELETE cứng
+        vehicleRepository.save(vehicle);
     }
-
     @Override
     public List<VehicleResponse> getByEmail(String email) {
         // 1. Tìm thông tin User/Customer dựa vào email lấy từ Token
@@ -122,7 +134,7 @@ public class VehicleServiceImpl implements VehicleService{
     }
 
     @Override
-    public VehicleResponse createVehicleForUser(Integer userId, CreateVehicleRequest request) {
+    public VehicleResponse createVehicleForUser(Integer userId, CreateMyVehicleRequest request) {
         AppUser currentUser = appUserRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
 
