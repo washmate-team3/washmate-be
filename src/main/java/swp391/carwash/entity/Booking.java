@@ -77,4 +77,7 @@ public class Booking extends AuditableEntity {
 
     @Column(name = "no_show_at")
     private OffsetDateTime noShowAt;
+
+    @Column(name = "reminder_sent")
+    private Boolean reminderSent = false;
 }

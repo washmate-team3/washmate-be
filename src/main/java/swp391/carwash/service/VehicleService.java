@@ -23,4 +23,8 @@ public interface VehicleService {
     void delete(Integer vehicleId);
 
     List<VehicleResponse> getByEmail(String email);
+
+    VehicleResponse createVehicleForUser(Integer userId, CreateVehicleRequest request);
+
+
 }

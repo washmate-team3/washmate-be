@@ -17,9 +17,4 @@ public interface BookingSlotRepository extends JpaRepository<BookingSlot, Intege
     @Query("select slot from BookingSlot slot where slot.id = :id")
     Optional<BookingSlot> findByIdForUpdate(@Param("id") Integer id);
 
-    // Tìm toàn bộ khung giờ của một Garage cụ thể
-    List<BookingSlot> findByGarageId(Integer garageId);
-
-    // Tìm các khung giờ đang hoạt động (ACTIVE) của một Garage
-    List<BookingSlot> findByGarageIdAndStatus(Integer garageId, RecordStatus status);
 }

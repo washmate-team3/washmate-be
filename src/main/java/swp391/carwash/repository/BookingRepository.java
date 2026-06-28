@@ -1,6 +1,7 @@
 package swp391.carwash.repository;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -78,4 +79,18 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
                         @Param("garageId") Integer garageId,
                         @Param("bookingDate") LocalDate bookingDate,
                         @Param("statuses") Collection<BookingStatus> statuses);
+
+        @Query("""
+        SELECT b
+        FROM Booking b
+        WHERE b.reminderSent = false
+        AND b.checkinTime 
+        BETWEEN :start 
+        AND :end
+    """)
+        List<Booking> findBookingNeedReminder(
+                OffsetDateTime start,
+                OffsetDateTime end
+        );
+
 }

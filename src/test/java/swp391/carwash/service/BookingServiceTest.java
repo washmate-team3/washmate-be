@@ -30,15 +30,7 @@ import swp391.carwash.entity.Vehicle;
 import swp391.carwash.enums.BookingStatus;
 import swp391.carwash.enums.PaymentMethod;
 import swp391.carwash.enums.PaymentStatus;
-import swp391.carwash.repository.AppUserRepository;
-import swp391.carwash.repository.BookingRepository;
-import swp391.carwash.repository.BookingSlotRepository;
-import swp391.carwash.repository.GarageRepository;
-import swp391.carwash.repository.InvoiceRepository;
-import swp391.carwash.repository.PaymentRepository;
-import swp391.carwash.repository.PaymentTransactionRepository;
-import swp391.carwash.repository.ServicePackageRepository;
-import swp391.carwash.repository.VehicleRepository;
+import swp391.carwash.repository.*;
 import swp391.carwash.security.AppUserDetails;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,6 +55,8 @@ class BookingServiceTest {
     private VehicleRepository vehicleRepository;
     @Mock
     private LoyaltyService loyaltyService;
+    @Mock
+    private PromotionRepository promotionRepository;
 
     @Mock
     private AppUserDetails principal;
@@ -81,7 +75,7 @@ class BookingServiceTest {
                 paymentTransactionRepository,
                 servicePackageRepository,
                 vehicleRepository,
-                loyaltyService
+                loyaltyService,promotionRepository
         );
     }
 
@@ -89,7 +83,7 @@ class BookingServiceTest {
     void createBookingRejectsNonCustomerBeforeLoadingData() {
         when(principal.getRoleNames()).thenReturn(List.of("STAFF"));
 
-        BookingCreateRequest request = new BookingCreateRequest(1, 1, 1, 1, LocalDate.now(), BigDecimal.ZERO, PaymentMethod.CASH);
+        BookingCreateRequest request = new BookingCreateRequest(1, 1, 1, 1, LocalDate.now(), null, PaymentMethod.CASH);
 
         ApiException exception = assertThrows(ApiException.class, () -> bookingService.createBooking(request, principal));
 
@@ -122,7 +116,7 @@ class BookingServiceTest {
         when(servicePackageRepository.findById(40)).thenReturn(Optional.of(service));
         when(vehicleRepository.findById(20)).thenReturn(Optional.of(vehicle));
 
-        BookingCreateRequest request = new BookingCreateRequest(1, 30, 40, 20, LocalDate.now(), new BigDecimal("1000.00"), PaymentMethod.CASH);
+        BookingCreateRequest request = new BookingCreateRequest(1, 30, 40, 20, LocalDate.now(), 999, PaymentMethod.CASH);
 
         ApiException exception = assertThrows(ApiException.class, () -> bookingService.createBooking(request, principal));
 

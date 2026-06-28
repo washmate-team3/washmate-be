@@ -42,6 +42,7 @@ public class BookingService {
     private final ServicePackageRepository servicePackageRepository;
     private final VehicleRepository vehicleRepository;
     private final LoyaltyService loyaltyService;
+    private final PromotionRepository promotionRepository;
 
     @Value("${washmate.payment.vnpay.timeout-minutes:15}")
     private int paymentTimeoutMinutes;
@@ -62,14 +63,46 @@ public class BookingService {
 
         validateBookingInputs(request, customer, garage, slot, service, vehicle);
 
+
         BigDecimal totalAmount = service.getPrice();
-        BigDecimal discountAmount = request.discountAmount() == null ? BigDecimal.ZERO : request.discountAmount();
-        if (discountAmount.compareTo(BigDecimal.ZERO) < 0) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Discount amount is invalid");
+        Promotion promotion = null;
+
+        // 1. Tạo một biến tạm thời để tính toán, chưa chốt discountAmount vội
+        BigDecimal calculatedDiscount = BigDecimal.ZERO;
+
+        if (request.promotionId() != null) {
+            OffsetDateTime now = OffsetDateTime.now();
+            promotion = promotionRepository.findById(request.promotionId())
+                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Mã khuyến mãi không tồn tại"));
+
+            if (!"ACTIVE".equals(promotion.getStatus()) ||
+                    now.isBefore(promotion.getStartDate()) ||
+                    now.isAfter(promotion.getEndDate()) ||
+                    (promotion.getUsageLimit() != null && promotion.getUsedCount() >= promotion.getUsageLimit()) ||
+                    totalAmount.compareTo(promotion.getMinOrderValue()) < 0) {
+
+                throw new ApiException(HttpStatus.BAD_REQUEST, "Mã khuyến mãi không hợp lệ hoặc đã hết hạn");
+            }
+
+            if ("PERCENTAGE".equals(promotion.getDiscountType())) {
+                BigDecimal percentFactor = promotion.getDiscountValue().divide(new BigDecimal("100"));
+                calculatedDiscount = totalAmount.multiply(percentFactor);
+
+                if (promotion.getMaxDiscount() != null && calculatedDiscount.compareTo(promotion.getMaxDiscount()) > 0) {
+                    calculatedDiscount = promotion.getMaxDiscount();
+                }
+            } else if ("FIXED_AMOUNT".equals(promotion.getDiscountType())) {
+                calculatedDiscount = promotion.getDiscountValue();
+            }
+
+            if (calculatedDiscount.compareTo(totalAmount) > 0) {
+                calculatedDiscount = totalAmount;
+            }
         }
-        if (discountAmount.compareTo(BigDecimal.ZERO) > 0) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Discount is not supported yet");
-        }
+
+        // 2. Chốt hạ giá trị cuối cùng vào biến final này.
+        // Biến này chỉ được gán đúng 1 lần duy nhất, IDE sẽ hết báo cảnh báo Reassigned.
+        final BigDecimal discountAmount = calculatedDiscount;
         BigDecimal finalAmount = totalAmount.subtract(discountAmount);
 
         Booking booking = bookingRepository.save(Booking.builder()

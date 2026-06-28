@@ -17,7 +17,8 @@ import java.util.List;
 @RequestMapping("/api/v1/customer/loyalty")
 @RequiredArgsConstructor
 @Tag(name = "Customer Loyalty Profile", description = "APIs dành cho Khách hàng xem điểm và lịch sử tích/đổi điểm")
-public class CustomerLoyaltyTierController {
+public class
+CustomerLoyaltyTierController {
 
     private final LoyaltyTierService loyaltyTierService;
 

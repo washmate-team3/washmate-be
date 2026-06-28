@@ -51,6 +51,19 @@ public class VehicleController {
 
         return ResponseEntity.ok(responses);
     }
+    @PostMapping("/my-vehicles")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Tạo xe mới cho tôi (Dựa vào ID từ Token)")
+    public ResponseEntity<VehicleResponse> createMyVehicle(
+            @Valid @RequestBody CreateVehicleRequest request,
+            Authentication authentication) {
+
+        Integer currentUserId = Integer.parseInt(authentication.getName());
+
+        VehicleResponse response = vehicleService.createVehicleForUser(currentUserId, request);
+
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
+    }
 
     @PutMapping("/{vehicleId}")
     @Operation(summary = "Cập nhật thông tin xe bằng ID của xe", description = "Chỉnh sửa thông tin chi tiết của một phương tiện theo mã xe")
@@ -67,4 +80,5 @@ public class VehicleController {
         vehicleService.delete(vehicleId);
         return ResponseEntity.noContent().build();
     }
+
 }
