@@ -94,4 +94,17 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
       @Param("slotId") Integer slotId,
       @Param("fromDate") LocalDate fromDate,
       @Param("statuses") Collection<BookingStatus> statuses);
+
+
+  @Query("""
+        SELECT b
+        FROM Booking b
+        WHERE b.reminderSent = false
+          AND b.checkinTime BETWEEN :startTime AND :endTime
+          AND b.status = 'CONFIRMED'
+    """)
+  List<Booking> findBookingNeedReminder(
+          @Param("startTime") OffsetDateTime startTime,
+          @Param("endTime") OffsetDateTime endTime
+  );
 }
