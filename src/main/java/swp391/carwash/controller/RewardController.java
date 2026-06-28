@@ -12,8 +12,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import swp391.carwash.dto.request.Reward.RewardCreateRequest;
 import swp391.carwash.dto.request.Reward.RewardUpdateRequest;
-import swp391.carwash.dto.respone.Reward.RewardRedemptionResponse;
-import swp391.carwash.dto.respone.Reward.RewardResponse;
+import swp391.carwash.dto.response.Reward.RewardRedemptionResponse;
+import swp391.carwash.dto.response.Reward.RewardResponse;
 import swp391.carwash.service.RewardRedemptionService;
 import swp391.carwash.service.RewardService;
 

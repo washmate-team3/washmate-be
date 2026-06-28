@@ -7,8 +7,8 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import swp391.carwash.dto.respone.vehicles.BehavioralLogResponse;
-import swp391.carwash.dto.respone.vehicles.CustomerSegmentResponse;
+import swp391.carwash.dto.response.vehicles.BehavioralLogResponse;
+import swp391.carwash.dto.response.vehicles.CustomerSegmentResponse;
 
 import java.util.HashMap;
 import java.util.List;

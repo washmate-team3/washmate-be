@@ -3,15 +3,13 @@ package swp391.carwash.controller;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import swp391.carwash.dto.request.Garages.CreateGarageRequest;
 import swp391.carwash.dto.request.Garages.UpdateGarageRequest;
-import swp391.carwash.dto.respone.Garages.GarageResponse;
+import swp391.carwash.dto.response.Garages.GarageResponse;
 import swp391.carwash.entity.Garage;
 import swp391.carwash.repository.GarageRepository;
 import swp391.carwash.service.GarageService;

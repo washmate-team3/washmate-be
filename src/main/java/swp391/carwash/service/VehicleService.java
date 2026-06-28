@@ -1,11 +1,10 @@
 package swp391.carwash.service;
 
-import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.carwash.dto.request.vehicles.CreateVehicleRequest;
 import swp391.carwash.dto.request.vehicles.UpdateVehicleRequest;
-import swp391.carwash.dto.respone.vehicles.VehicleResponse;
+import swp391.carwash.dto.response.vehicles.VehicleResponse;
 
 import java.util.List;
 
@@ -24,4 +23,8 @@ public interface VehicleService {
     void delete(Integer vehicleId);
 
     List<VehicleResponse> getByEmail(String email);
+
+    VehicleResponse createVehicleForUser(Integer userId, CreateVehicleRequest request);
+
+
 }

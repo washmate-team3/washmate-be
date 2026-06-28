@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import swp391.carwash.dto.request.vehicles.LoyaltyTierRequest;
-import swp391.carwash.dto.respone.vehicles.LoyaltyTierResponse;
+import swp391.carwash.dto.response.vehicles.LoyaltyTierResponse;
 import swp391.carwash.service.LoyaltyTierService;
 
 import java.util.List;

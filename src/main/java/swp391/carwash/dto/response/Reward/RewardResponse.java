@@ -1,4 +1,4 @@
-package swp391.carwash.dto.respone.Reward;
+package swp391.carwash.dto.response.Reward;
 
 public record RewardResponse(
         Integer rewardId,

@@ -8,7 +8,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import swp391.carwash.dto.request.vehicles.LoyaltyTierRequest;
-import swp391.carwash.dto.respone.vehicles.LoyaltyTierResponse;
+import swp391.carwash.dto.response.vehicles.LoyaltyTierResponse;
 import swp391.carwash.service.LoyaltyTierService;
 
 import java.util.List;
@@ -17,7 +17,8 @@ import java.util.List;
 @RequestMapping("/api/v1/customer/loyalty")
 @RequiredArgsConstructor
 @Tag(name = "Customer Loyalty Profile", description = "APIs dành cho Khách hàng xem điểm và lịch sử tích/đổi điểm")
-public class CustomerLoyaltyTierController {
+public class
+CustomerLoyaltyTierController {
 
     private final LoyaltyTierService loyaltyTierService;
 

@@ -1,4 +1,4 @@
-package swp391.carwash.dto.respone.Garages;
+package swp391.carwash.dto.response.Garages;
 
 import java.time.LocalDateTime;
 

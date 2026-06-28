@@ -1,10 +1,9 @@
 package swp391.carwash.service;
 import swp391.carwash.dto.request.Garages.CreateGarageRequest;
 import swp391.carwash.dto.request.Garages.UpdateGarageRequest;
-import swp391.carwash.dto.respone.Garages.GarageResponse;
+import swp391.carwash.dto.response.Garages.GarageResponse;
 import swp391.carwash.entity.Garage;
 
-import swp391.carwash.entity.Garage;
 import java.util.List;
 import java.util.Optional;
 

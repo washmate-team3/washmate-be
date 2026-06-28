@@ -1,15 +1,15 @@
 package swp391.carwash.service;
 
 
-import lombok.Builder;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.core.userdetails.User;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.dto.request.vehicles.CreateVehicleRequest;
 import swp391.carwash.dto.request.vehicles.UpdateVehicleRequest;
-import swp391.carwash.dto.respone.vehicles.VehicleResponse;
+import swp391.carwash.dto.response.vehicles.VehicleResponse;
 
 import swp391.carwash.entity.AppUser;
 import swp391.carwash.entity.Vehicle;
@@ -119,6 +119,28 @@ public class VehicleServiceImpl implements VehicleService{
                         // Thêm các trường khác tùy thuộc vào thuộc tính thực tế trong DTO của bạn
                         .build())
                 .toList(); // Hoặc .collect(Collectors.toList()) nếu bạn dùng Java bản cũ hơn 16
+    }
+
+    @Override
+    public VehicleResponse createVehicleForUser(Integer userId, CreateVehicleRequest request) {
+        AppUser currentUser = appUserRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Không tìm thấy người dùng"));
+
+        // 2. Map data từ Request sang Entity
+        Vehicle vehicle = new Vehicle();
+        vehicle.setLicensePlate(request.getLicensePlate());
+        vehicle.setBrand(request.getBrand());
+        vehicle.setModel(request.getModel());
+        vehicle.setColor(request.getColor());
+
+        // Gán User làm chủ xe
+        vehicle.setUser(currentUser);
+
+        // 3. Lưu vào DB
+        Vehicle savedVehicle = vehicleRepository.save(vehicle);
+
+        // 4. Trả về DTO kết quả
+        return mapToResponse(savedVehicle);
     }
 
     private Vehicle findVehicleById(Integer vehicleId) {

@@ -12,6 +12,6 @@ public record BookingCreateRequest(
                 @NotNull Integer serviceId,
                 @NotNull Integer vehicleId,
                 @NotNull @FutureOrPresent LocalDate bookingDate,
-                BigDecimal discountAmount,
+                Integer promotionId,
                 PaymentMethod paymentMethod) {
 }
