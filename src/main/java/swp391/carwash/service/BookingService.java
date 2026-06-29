@@ -44,6 +44,7 @@ public class BookingService {
     private final VehicleRepository vehicleRepository;
     private final LoyaltyService loyaltyService;
     private final PromotionRepository promotionRepository;
+    private final NotificationRepository notificationRepository;
 
     @Value("${washmate.payment.vnpay.timeout-minutes:15}")
     private int paymentTimeoutMinutes;
@@ -122,6 +123,17 @@ public class BookingService {
                 .status(BookingStatus.PENDING)
                 .build());
         bookingRepository.flush();
+
+        //notification khi đặt lịch chờ xác nhận
+        notificationRepository.save(Notification.builder()
+                .userId(customer.getId())
+                .bookingId(booking.getId())
+                .title("Đặt lịch thành công")
+                .content(String.format("Yêu cầu đặt lịch %s tại %s đang chờ xác nhận.", booking.getBookingCode(), garage.getName()))
+                .type("BOOKING_CONFIRMATION")
+                .channel("IN_APP")
+                .status("PENDING")
+                .build());
 
         Payment payment = paymentRepository.findByBookingId(booking.getId())
                 .orElseGet(() -> paymentRepository.save(Payment.builder()
@@ -274,6 +286,16 @@ public class BookingService {
         payment.setGarage(newGarage);
         payment.setUpdatedAt(OffsetDateTime.now());
 
+        notificationRepository.save(Notification.builder()
+                .userId(booking.getUser().getId())
+                .bookingId(booking.getId())
+                .title("cập nhập thành công")
+                .content(String.format("Đơn đặt lịch %s của bạn đã được hủy bỏ thành công.", booking.getBookingCode()))
+                .type("BOOKING_CONFIRMATION")
+                .channel("IN_APP")
+                .status("PENDING")
+                .build());
+
         return BookingResponse.from(booking, payment, invoiceRepository.findByBookingId(bookingId).orElse(null));
     }
 
@@ -293,7 +315,19 @@ public class BookingService {
         requireStatus(booking, BookingStatus.PENDING, "Only PENDING booking can be confirmed");
         booking.setStatus(BookingStatus.CONFIRMED);
         booking.setConfirmedAt(OffsetDateTime.now());
+
+        notificationRepository.save(Notification.builder()
+                .userId(booking.getUser().getId())
+                .bookingId(booking.getId())
+                .title("Đơn đặt lịch được xác nhận")
+                .content(String.format("Lịch rửa xe %s đã được xác nhận thành công bởi %s.", booking.getBookingCode(), booking.getGarage().getName()))
+                .type("BOOKING_CONFIRMATION")
+                .channel("IN_APP")
+                .status("PENDING")
+                .build());
+
         return responseWithPaymentAndInvoice(booking);
+
     }
 
     @Transactional
@@ -313,6 +347,15 @@ public class BookingService {
             payment.setUpdatedAt(now);
             recordPaymentTransaction(payment, PaymentTransactionStatus.CANCELLED, "MANUAL", null);
         }
+        notificationRepository.save(Notification.builder()
+                .userId(booking.getUser().getId())
+                .bookingId(booking.getId())
+                .title("Đơn đặt lịch bị từ chối")
+                .content(String.format("Rất tiếc, đơn đặt lịch %s đã bị từ chối. Lý do: %s", booking.getBookingCode(), request.reason()))
+                .type("BOOKING_CONFIRMATION")
+                .channel("IN_APP")
+                .status("PENDING")
+                .build());
 
         Invoice invoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
         return BookingResponse.from(booking, payment, invoice);
@@ -335,6 +378,17 @@ public class BookingService {
         requireStatus(booking, BookingStatus.CHECKED_IN, "Only CHECKED_IN booking can start washing");
         booking.setStatus(BookingStatus.WASHING);
         booking.setServiceStartTime(OffsetDateTime.now());
+
+        notificationRepository.save(Notification.builder()
+                .userId(booking.getUser().getId())
+                .bookingId(booking.getId())
+                .title("Xe của bạn đang được rửa")
+                .content(String.format("Garage %s đã bắt đầu tiến hành dịch vụ rửa xe cho mã đơn %s.", booking.getGarage().getName(), booking.getBookingCode()))
+                .type("BOOKING_CONFIRMATION")
+                .channel("IN_APP")
+                .status("PENDING")
+                .build());
+
         return responseWithPaymentAndInvoice(booking);
     }
 
@@ -379,6 +433,16 @@ public class BookingService {
             payment.setUpdatedAt(now);
             recordPaymentTransaction(payment, PaymentTransactionStatus.CANCELLED, "MANUAL", null);
         }
+
+        notificationRepository.save(Notification.builder()
+                .userId(booking.getUser().getId())
+                .bookingId(booking.getId())
+                .title("Hủy lịch thành công")
+                .content(String.format("Đơn đặt lịch %s của bạn đã được hủy bỏ thành công.", booking.getBookingCode()))
+                .type("BOOKING_CONFIRMATION")
+                .channel("IN_APP")
+                .status("PENDING")
+                .build());
 
         Invoice invoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
         return BookingResponse.from(booking, payment, invoice);
