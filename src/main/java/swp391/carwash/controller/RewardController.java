@@ -27,7 +27,7 @@ public class RewardController {
 
     // 1. [CREATE] Thêm mới phần thưởng (Admin/Staff)
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+//    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<RewardResponse> createReward(@RequestBody RewardCreateRequest request) {
         RewardResponse response = rewardService.createReward(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
@@ -42,7 +42,7 @@ public class RewardController {
 
     // 3. [UPDATE] Cập nhật thông tin quà (Admin/Staff)
     @PutMapping("/{rewardId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+//    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<RewardResponse> updateReward(
             @PathVariable Integer rewardId,
             @RequestBody RewardUpdateRequest request) {
@@ -52,7 +52,7 @@ public class RewardController {
 
     // 4. [DELETE] Xóa mềm phần thưởng (Admin/Staff)
     @DeleteMapping("/{rewardId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
+//    @PreAuthorize("hasAnyRole('ADMIN', 'STAFF')")
     public ResponseEntity<Void> deleteReward(@PathVariable Integer rewardId) {
         rewardService.deleteReward(rewardId);
         return ResponseEntity.noContent().build();
@@ -60,7 +60,7 @@ public class RewardController {
 
     // 5. [READ LIST] Lấy danh sách quà theo từng Garage kèm phân trang & lọc động theo trạng thái
     // Không hard-code cấu hình phân trang, cho phép FE truyền động qua URL (ví dụ: ?page=0&size=10&sort=pointsRequired,asc)
-    @GetMapping("/garage/{garageId}")
+    @GetMapping("/all/{garageId}")
     public ResponseEntity<Page<RewardResponse>> getAllRewardsByGarage(
             @PathVariable Integer garageId,
             @RequestParam(required = false) String status,

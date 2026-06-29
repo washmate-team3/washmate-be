@@ -21,6 +21,7 @@ public interface RewardRepository extends JpaRepository<Reward, Integer> {
 
     Optional<Reward> findByRewardIdAndGarageId(Integer rewardId, Integer garageId);
 
+    Page<Reward> findByGarageId(Integer garageId, Pageable pageable);
 
 
 }

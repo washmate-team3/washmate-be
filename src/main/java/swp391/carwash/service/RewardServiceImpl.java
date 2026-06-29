@@ -72,7 +72,7 @@ public class RewardServiceImpl implements RewardService {
         if (status != null && !status.isBlank()) {
             return rewardRepository.findByGarageIdAndStatus(garageId, status, pageable).map(this::mapToResponse);
         }
-        return rewardRepository.findByGarageIdAndStatusNot(garageId, "DELETED", pageable).map(this::mapToResponse);
+        return rewardRepository.findByGarageId(garageId, pageable).map(this::mapToResponse);
     }
 
     private RewardResponse mapToResponse(Reward reward) {
