@@ -102,6 +102,19 @@ class LoyaltyServiceTest {
     }
 
     @Test
+    void accruePointsSkipsWhenGarageHasNoActiveTier() {
+        when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, "EARN")).thenReturn(false);
+        when(loyaltyAccountRepository.findByUserIdAndGarageId(10, 1)).thenReturn(Optional.empty());
+        when(membershipTierRepository.findFirstByGarageIdAndStatusOrderByMinPointsAsc(1, RecordStatus.ACTIVE))
+                .thenReturn(Optional.empty());
+
+        loyaltyService.accruePoints(booking);
+
+        verify(loyaltyAccountRepository, never()).save(any());
+        verify(loyaltyTransactionRepository, never()).save(any());
+    }
+
+    @Test
     void rollbackEarnedPointsReducesPointsCorrectly() {
         LoyaltyTransaction earned = LoyaltyTransaction.builder()
                 .id(99)

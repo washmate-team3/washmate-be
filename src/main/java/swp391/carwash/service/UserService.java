@@ -1,13 +1,7 @@
 package swp391.carwash.service;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.time.OffsetDateTime;
-import java.util.Set;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -27,14 +21,10 @@ import swp391.carwash.repository.RefreshTokenRepository;
 @Service
 @RequiredArgsConstructor
 public class UserService {
-    private static final long MAX_AVATAR_BYTES = 5 * 1024 * 1024;
-    private static final Set<String> ALLOWED_AVATAR_TYPES = Set.of("image/jpeg", "image/png", "image/webp");
-
     private final AppUserRepository appUserRepository;
     private final RefreshTokenRepository refreshTokenRepository;
-
-    @Value("${washmate.upload.avatar-dir:uploads/avatars}")
-    private String avatarDir;
+    private final SupabaseStorageService supabaseStorageService;
+    private final AvatarValidator avatarValidator;
 
     @Transactional
     public MeResponse updateProfile(Integer userId, UpdateProfileRequest request) {
@@ -58,43 +48,38 @@ public class UserService {
     }
 
     @Transactional
-    public AvatarUploadResponse uploadAvatar(Integer userId, MultipartFile file, String publicBaseUrl) {
+    public AvatarUploadResponse uploadAvatar(Integer userId, MultipartFile file) {
+        avatarValidator.validate(file);
         AppUser user = appUserRepository.findById(userId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Account not found"));
-        if (file == null || file.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Avatar file is required");
-        }
-        if (file.getSize() > MAX_AVATAR_BYTES) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Avatar file must be 5MB or smaller");
-        }
-        String contentType = file.getContentType();
-        if (!ALLOWED_AVATAR_TYPES.contains(contentType)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "Only jpg, png, and webp avatar images are allowed");
-        }
-
-        String extension = switch (contentType) {
-            case "image/png" -> ".png";
-            case "image/webp" -> ".webp";
-            default -> ".jpg";
-        };
-        String filename = "user-%d-%s%s".formatted(userId, UUID.randomUUID(), extension);
-
+        String oldAvatarUrl = user.getAvatarUrl();
+        SupabaseStorageService.UploadedAvatar uploadedAvatar =
+                supabaseStorageService.uploadAvatar(userId, file, avatarValidator.resolveExtension(file));
         try {
-            Path uploadDir = Path.of(avatarDir).toAbsolutePath().normalize();
-            Files.createDirectories(uploadDir);
-            Path target = uploadDir.resolve(filename).normalize();
-            if (!target.startsWith(uploadDir)) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Invalid avatar filename");
-            }
-            file.transferTo(target);
-        } catch (IOException e) {
-            throw new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to upload avatar");
+            user.setAvatarUrl(uploadedAvatar.publicUrl());
+            appUserRepository.saveAndFlush(user);
+        } catch (RuntimeException e) {
+            supabaseStorageService.deleteByPath(uploadedAvatar.path());
+            throw e;
         }
 
-        String avatarUrl = publicBaseUrl.replaceAll("/+$", "") + "/uploads/avatars/" + filename;
-        user.setAvatarUrl(avatarUrl);
-        appUserRepository.save(user);
-        return new AvatarUploadResponse(avatarUrl);
+        supabaseStorageService.deleteByPublicUrl(oldAvatarUrl);
+        return new AvatarUploadResponse(uploadedAvatar.publicUrl());
+    }
+
+    @Transactional
+    public AvatarUploadResponse deleteAvatar(Integer userId) {
+        AppUser user = appUserRepository.findById(userId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Account not found"));
+        String oldAvatarUrl = user.getAvatarUrl();
+        if (!StringUtils.hasText(oldAvatarUrl)) {
+            return new AvatarUploadResponse(null);
+        }
+
+        user.setAvatarUrl(null);
+        appUserRepository.saveAndFlush(user);
+        supabaseStorageService.deleteByPublicUrl(oldAvatarUrl);
+        return new AvatarUploadResponse(null);
     }
 
     @Transactional
