@@ -57,7 +57,7 @@ public class GarageController {
     }
 
     // 4. API Cập nhật thông tin Garage
-    // PUT http://localhost:8080/api/v1/garages/{id}
+
     @PutMapping("/{id}")
     @Operation(summary = "Cập nhật thông tin Garage")
     public ResponseEntity<GarageResponse> updateGarage(

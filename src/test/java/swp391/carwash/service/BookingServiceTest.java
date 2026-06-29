@@ -63,6 +63,9 @@ class BookingServiceTest {
 
     private BookingService bookingService;
 
+    @Mock
+    private NotificationRepository notificationRepository;
+
     @BeforeEach
     void setUp() {
         bookingService = new BookingService(
@@ -75,7 +78,8 @@ class BookingServiceTest {
                 paymentTransactionRepository,
                 servicePackageRepository,
                 vehicleRepository,
-                loyaltyService,promotionRepository
+                loyaltyService,promotionRepository,
+                notificationRepository
         );
     }
 
