@@ -27,7 +27,10 @@ public class BookingReminderScheduler {
         OffsetDateTime start = now.plusMinutes(59);
         OffsetDateTime end = now.plusMinutes(61);
 
-        List<Booking> bookings = bookingRepository.findBookingNeedReminder(start, end);
+        List<Booking> bookings = bookingRepository.findBookingNeedReminder(
+                start.toLocalDateTime(),
+                start.toLocalDateTime(),
+                end.toLocalDateTime());
 
         for(Booking booking : bookings){
             try {
