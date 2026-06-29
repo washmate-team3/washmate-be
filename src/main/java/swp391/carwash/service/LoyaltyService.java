@@ -53,21 +53,27 @@ public class LoyaltyService {
             return;
         }
 
-        LoyaltyAccount account = loyaltyAccountRepository.findByUserIdAndGarageId(booking.getUser().getId(), booking.getGarage().getId())
-                .orElseGet(() -> {
-                    MembershipTier tier = membershipTierRepository.findFirstByGarageIdAndStatusOrderByMinPointsAsc(booking.getGarage().getId(), RecordStatus.ACTIVE)
-                            .orElse(null);
-                    LoyaltyAccount newAccount = LoyaltyAccount.builder()
-                            .user(booking.getUser())
-                            .garage(booking.getGarage())
-                            .tier(tier)
-                            .totalPoints(0)
-                            .availablePoints(0)
-                            .status(RecordStatus.ACTIVE)
-                            .createdAt(OffsetDateTime.now())
-                            .build();
-                    return loyaltyAccountRepository.save(newAccount);
-                });
+        LoyaltyAccount account = loyaltyAccountRepository.findByUserIdAndGarageId(
+                        booking.getUser().getId(),
+                        booking.getGarage().getId())
+                .orElse(null);
+        if (account == null) {
+            MembershipTier tier = membershipTierRepository
+                    .findFirstByGarageIdAndStatusOrderByMinPointsAsc(booking.getGarage().getId(), RecordStatus.ACTIVE)
+                    .orElse(null);
+            if (tier == null) {
+                return;
+            }
+            account = loyaltyAccountRepository.save(LoyaltyAccount.builder()
+                    .user(booking.getUser())
+                    .garage(booking.getGarage())
+                    .tier(tier)
+                    .totalPoints(0)
+                    .availablePoints(0)
+                    .status(RecordStatus.ACTIVE)
+                    .createdAt(OffsetDateTime.now())
+                    .build());
+        }
 
         account.setTotalPoints(account.getTotalPoints() + pointsToAdd);
         account.setAvailablePoints(account.getAvailablePoints() + pointsToAdd);

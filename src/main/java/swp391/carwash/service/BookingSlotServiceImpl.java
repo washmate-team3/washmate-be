@@ -12,7 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.dto.request.BookingSlotCreateRequest;
-import swp391.carwash.dto.respone.BookingSlotResponse;
+import swp391.carwash.dto.response.BookingSlotResponse;
 import swp391.carwash.entity.BookingSlot;
 import swp391.carwash.entity.Garage;
 import swp391.carwash.enums.BookingStatus;

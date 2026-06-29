@@ -1,6 +1,7 @@
 package swp391.carwash.controller;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -9,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import swp391.carwash.dto.AvatarUploadResponse;
 import swp391.carwash.dto.MeResponse;
 import swp391.carwash.dto.UpdateProfileRequest;
@@ -47,7 +47,11 @@ public class UserController {
             @AuthenticationPrincipal AppUserDetails principal,
             @RequestPart("file") MultipartFile file
     ) {
-        String publicBaseUrl = ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString();
-        return userService.uploadAvatar(principal.getId(), file, publicBaseUrl);
+        return userService.uploadAvatar(principal.getId(), file);
+    }
+
+    @DeleteMapping("/me/avatar")
+    public AvatarUploadResponse deleteAvatar(@AuthenticationPrincipal AppUserDetails principal) {
+        return userService.deleteAvatar(principal.getId());
     }
 }

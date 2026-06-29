@@ -1,4 +1,4 @@
-package swp391.carwash.dto.respone;
+package swp391.carwash.dto.response;
 
 import java.time.LocalTime;
 

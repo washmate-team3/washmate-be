@@ -12,6 +12,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mail.javamail.JavaMailSender;
 
 import swp391.carwash.dto.MeResponse;
+import swp391.carwash.dto.AvatarUploadResponse;
 import swp391.carwash.dto.UpdateProfileRequest;
 import swp391.carwash.service.UserService;
 import swp391.carwash.security.AppUserDetails;
@@ -21,6 +22,8 @@ import swp391.carwash.enums.UserStatus;
 import java.util.Collections;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
@@ -88,5 +91,33 @@ public class UserControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.fullName").value("Updated User"))
                 .andExpect(jsonPath("$.phone").value("0987654321"));
+    }
+
+    @Test
+    void testUploadAvatar() throws Exception {
+        AppUserDetails userDetails = createMockUser();
+        org.springframework.mock.web.MockMultipartFile file = new org.springframework.mock.web.MockMultipartFile(
+                "file",
+                "avatar.jpg",
+                MediaType.IMAGE_JPEG_VALUE,
+                new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0, 0, 0, 0, 0, 0, 0, 0, 0}
+        );
+        when(userService.uploadAvatar(eq(1), any())).thenReturn(new AvatarUploadResponse("https://example.test/avatar.jpg"));
+
+        mockMvc.perform(multipart("/api/users/me/avatar")
+                        .file(file)
+                        .with(user(userDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatarUrl").value("https://example.test/avatar.jpg"));
+    }
+
+    @Test
+    void testDeleteAvatar() throws Exception {
+        AppUserDetails userDetails = createMockUser();
+        when(userService.deleteAvatar(1)).thenReturn(new AvatarUploadResponse(null));
+
+        mockMvc.perform(delete("/api/users/me/avatar").with(user(userDetails)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatarUrl").doesNotExist());
     }
 }

@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import swp391.carwash.dto.request.BookingSlotCapacityUpdateRequest;
 import swp391.carwash.dto.request.BookingSlotCreateRequest;
-import swp391.carwash.dto.respone.BookingSlotResponse;
+import swp391.carwash.dto.response.BookingSlotResponse;
 import swp391.carwash.service.BookingSlotService;
 
 @RestController

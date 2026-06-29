@@ -3,7 +3,7 @@ package swp391.carwash.service;
 import java.time.LocalDate;
 import java.util.List;
 import swp391.carwash.dto.request.BookingSlotCreateRequest;
-import swp391.carwash.dto.respone.BookingSlotResponse;
+import swp391.carwash.dto.response.BookingSlotResponse;
 import swp391.carwash.entity.BookingSlot;
 
 public interface BookingSlotService {
