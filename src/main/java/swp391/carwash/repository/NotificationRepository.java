@@ -10,7 +10,6 @@ import org.springframework.stereotype.Repository;
 import swp391.carwash.entity.Notification;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.Optional;
 
 @Repository

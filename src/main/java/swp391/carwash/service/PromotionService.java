@@ -7,7 +7,6 @@ import swp391.carwash.entity.Promotion;
 import swp391.carwash.repository.PromotionRepository;
 
 import java.time.OffsetDateTime;
-import java.time.ZonedDateTime;
 import java.util.List;
 
 @Service

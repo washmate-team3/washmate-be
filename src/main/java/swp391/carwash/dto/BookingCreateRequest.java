@@ -2,7 +2,6 @@ package swp391.carwash.dto;
 
 import jakarta.validation.constraints.FutureOrPresent;
 import jakarta.validation.constraints.NotNull;
-import java.math.BigDecimal;
 import java.time.LocalDate;
 import swp391.carwash.enums.PaymentMethod;
 

@@ -4,7 +4,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import swp391.carwash.dto.request.vehicles.LoyaltyTierRequest;
 import swp391.carwash.dto.response.vehicles.LoyaltyTierResponse;
-import swp391.carwash.repository.MembershipTierRepository;
 
 import java.util.List;
 
@@ -12,8 +11,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class LoyaltyTierService {
     
-    private final MembershipTierRepository membershipTierRepository;
-
     public List<LoyaltyTierResponse> getAllTiers() {
         return List.of();
     }

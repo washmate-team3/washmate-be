@@ -2,7 +2,6 @@ package swp391.carwash.dto.request.vehicles;
 
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
-import jakarta.validation.constraints.NotNull;
 
 @Data
 public class CreateVehicleRequest {

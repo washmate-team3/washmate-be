@@ -1,6 +1,5 @@
 package swp391.carwash.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -16,11 +15,7 @@ import swp391.carwash.dto.BookingResponse;
 import swp391.carwash.service.BookingService;
 import swp391.carwash.security.AppUserDetails;
 import swp391.carwash.entity.AppUser;
-import swp391.carwash.enums.PaymentMethod;
 import swp391.carwash.enums.UserStatus;
-
-import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 
@@ -40,8 +35,6 @@ public class BookingControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @Autowired
-    private ObjectMapper objectMapper;
 
     @MockitoBean
     private JavaMailSender javaMailSender;
