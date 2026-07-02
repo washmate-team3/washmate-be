@@ -98,7 +98,7 @@ class BookingServiceTest {
     }
 
     @Test
-    void createBookingRejectsClientSuppliedDiscountUntilDiscountEngineExists() {
+    void createBookingRejectsUnknownPromotion() {
         when(principal.getRoleNames()).thenReturn(List.of("CUSTOMER"));
         when(principal.getId()).thenReturn(10);
 
@@ -124,8 +124,8 @@ class BookingServiceTest {
 
         ApiException exception = assertThrows(ApiException.class, () -> bookingService.createBooking(request, principal));
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
-        assertEquals("Discount is not supported yet", exception.getMessage());
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+        assertEquals("Mã khuyến mãi không tồn tại", exception.getMessage());
         verify(bookingRepository, never()).save(org.mockito.ArgumentMatchers.any(Booking.class));
     }
 
