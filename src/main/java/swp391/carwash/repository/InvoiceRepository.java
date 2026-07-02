@@ -52,4 +52,17 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
 
     @Query("select coalesce(sum(invoice.totalAmount), 0) from Invoice invoice where invoice.status = :status")
     BigDecimal sumTotalAmountByStatus(@Param("status") InvoiceStatus status);
+
+    @EntityGraph(attributePaths = {"booking", "booking.user", "booking.service", "garage"})
+    @Query("""
+            select invoice from Invoice invoice
+            where invoice.status = :status
+              and invoice.paidAt is not null
+              and invoice.paidAt >= :fromTime
+              and invoice.paidAt < :toTime
+            """)
+    List<Invoice> findPaidForInsightPeriod(
+            @Param("status") InvoiceStatus status,
+            @Param("fromTime") OffsetDateTime fromTime,
+            @Param("toTime") OffsetDateTime toTime);
 }

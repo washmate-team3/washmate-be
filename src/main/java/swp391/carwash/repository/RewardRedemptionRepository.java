@@ -1,8 +1,13 @@
 package swp391.carwash.repository;
 
+import java.time.ZonedDateTime;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import swp391.carwash.entity.RewardRedemption;
 
 public interface RewardRedemptionRepository extends JpaRepository<RewardRedemption,Integer> {
@@ -14,5 +19,14 @@ public interface RewardRedemptionRepository extends JpaRepository<RewardRedempti
 
     // Customer tự xem lịch sử đổi quà cá nhân tại một Garage cụ thể (quét qua quan hệ nested: loyaltyAccount -> appUser -> userId)
     Page<RewardRedemption> findByLoyaltyAccount_User_IdAndGarage_Id(Integer userId, Integer garageId, Pageable pageable);
+    @EntityGraph(attributePaths = {"loyaltyAccount", "loyaltyAccount.user", "garage", "reward"})
+    @Query("""
+            select redemption from RewardRedemption redemption
+            where redemption.redeemedAt >= :fromTime
+              and redemption.redeemedAt < :toTime
+            """)
+    List<RewardRedemption> findForInsightPeriod(
+            @Param("fromTime") ZonedDateTime fromTime,
+            @Param("toTime") ZonedDateTime toTime);
 }
 

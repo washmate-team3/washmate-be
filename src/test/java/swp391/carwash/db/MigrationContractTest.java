@@ -31,4 +31,17 @@ class MigrationContractTest {
         assertTrue(migration.contains("REVOKE ALL PRIVILEGES ON ALL TABLES"));
         assertFalse(migration.contains("CREATE POLICY"));
     }
+
+    @Test
+    void insightMigrationEnablesRlsAndAddsReportingIndexes() throws IOException {
+        String migration = Files.readString(MIGRATION_DIR.resolve("V9__autowash_insights.sql"));
+
+        assertTrue(migration.contains("CREATE TABLE IF NOT EXISTS insight_rule_config"));
+        assertTrue(migration.contains("CREATE TABLE IF NOT EXISTS business_insight"));
+        assertTrue(migration.contains("CREATE TABLE insight_ai_enrichment"));
+        assertTrue(migration.contains("ALTER TABLE business_insight ENABLE ROW LEVEL SECURITY"));
+        assertTrue(migration.contains("ALTER TABLE insight_ai_enrichment ENABLE ROW LEVEL SECURITY"));
+        assertTrue(migration.contains("idx_invoice_insight_paid_status_date"));
+        assertTrue(migration.contains("idx_booking_insight_booking_date"));
+    }
 }

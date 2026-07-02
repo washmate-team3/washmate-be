@@ -1,0 +1,86 @@
+package swp391.carwash.service;
+
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoUnit;
+import java.util.HashSet;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import swp391.carwash.dto.insight.InsightPeriod;
+import swp391.carwash.entity.ServicePackage;
+import swp391.carwash.enums.InvoiceStatus;
+import swp391.carwash.enums.RecordStatus;
+import swp391.carwash.repository.BookingRepository;
+import swp391.carwash.repository.InvoiceRepository;
+import swp391.carwash.repository.LoyaltyAccountRepository;
+import swp391.carwash.repository.LoyaltyTransactionRepository;
+import swp391.carwash.repository.RewardRedemptionRepository;
+import swp391.carwash.repository.ServicePackageRepository;
+import swp391.carwash.service.insight.InsightAnalysisContext;
+import swp391.carwash.service.insight.InsightMetrics;
+
+@Service
+@RequiredArgsConstructor
+public class ReportAggregationService {
+    private final BookingRepository bookingRepository;
+    private final InvoiceRepository invoiceRepository;
+    private final LoyaltyTransactionRepository loyaltyTransactionRepository;
+    private final RewardRedemptionRepository rewardRedemptionRepository;
+    private final LoyaltyAccountRepository loyaltyAccountRepository;
+    private final ServicePackageRepository servicePackageRepository;
+
+    @Transactional(readOnly = true)
+    public InsightAnalysisContext aggregate(LocalDate fromDate, LocalDate toDate) {
+        long periodDays = ChronoUnit.DAYS.between(fromDate, toDate) + 1;
+        LocalDate previousTo = fromDate.minusDays(1);
+        LocalDate previousFrom = previousTo.minusDays(periodDays - 1);
+        ZoneId zone = ZoneId.systemDefault();
+
+        var activeServices = servicePackageRepository.findByStatus(RecordStatus.ACTIVE);
+        long accountsWithAvailablePoints = loyaltyAccountRepository.countAccountsWithAvailablePoints(RecordStatus.ACTIVE);
+
+        InsightMetrics current = loadSnapshot(
+                fromDate,
+                toDate,
+                zone,
+                new HashSet<>(bookingRepository.findDistinctCustomerIdsWithBookingBefore(fromDate)),
+                activeServices,
+                accountsWithAvailablePoints);
+        InsightMetrics previous = loadSnapshot(
+                previousFrom,
+                previousTo,
+                zone,
+                new HashSet<>(bookingRepository.findDistinctCustomerIdsWithBookingBefore(previousFrom)),
+                activeServices,
+                accountsWithAvailablePoints);
+
+        return new InsightAnalysisContext(current, previous, OffsetDateTime.now(zone));
+    }
+
+    private InsightMetrics loadSnapshot(
+            LocalDate fromDate,
+            LocalDate toDate,
+            ZoneId zone,
+            HashSet<Integer> customerIdsBeforePeriod,
+            List<ServicePackage> activeServices,
+            long accountsWithAvailablePoints) {
+        OffsetDateTime fromTime = fromDate.atStartOfDay(zone).toOffsetDateTime();
+        OffsetDateTime toTime = toDate.plusDays(1).atStartOfDay(zone).toOffsetDateTime();
+        ZonedDateTime redemptionFromTime = fromDate.atStartOfDay(zone);
+        ZonedDateTime redemptionToTime = toDate.plusDays(1).atStartOfDay(zone);
+
+        return new InsightMetrics(
+                new InsightPeriod(fromDate, toDate),
+                bookingRepository.findForInsightPeriod(fromDate, toDate),
+                invoiceRepository.findPaidForInsightPeriod(InvoiceStatus.PAID, fromTime, toTime),
+                loyaltyTransactionRepository.findForInsightPeriod(fromTime, toTime),
+                rewardRedemptionRepository.findForInsightPeriod(redemptionFromTime, redemptionToTime),
+                activeServices,
+                customerIdsBeforePeriod,
+                accountsWithAvailablePoints);
+    }
+}
