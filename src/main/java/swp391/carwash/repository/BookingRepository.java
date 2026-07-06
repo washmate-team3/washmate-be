@@ -35,6 +35,26 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
       @Param("bookingDate") LocalDate bookingDate,
       @Param("statuses") Collection<BookingStatus> statuses);
 
+  /**
+   * Check user đã có booking đang hoạt động trên cùng slot + ngày chưa
+   * (chặn double booking). excludeBookingId dùng cho update, truyền null khi create.
+   */
+  @Query("""
+      select count(b) > 0
+      from Booking b
+      where b.user.id = :userId
+        and b.slot.id = :slotId
+        and b.bookingDate = :bookingDate
+        and b.status in :statuses
+        and (:excludeBookingId is null or b.id != :excludeBookingId)
+      """)
+  boolean existsActiveBookingForUserAndSlot(
+      @Param("userId") Integer userId,
+      @Param("slotId") Integer slotId,
+      @Param("bookingDate") LocalDate bookingDate,
+      @Param("statuses") Collection<BookingStatus> statuses,
+      @Param("excludeBookingId") Integer excludeBookingId);
+
   @EntityGraph(attributePaths = { "user", "garage", "slot", "service", "vehicle", "assignedStaff" })
   @Query("""
       select b from Booking b

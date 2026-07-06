@@ -17,4 +17,11 @@ public class VnpayProperties {
     private String returnUrl;
     private String frontendResultUrl = "http://localhost:3000/payment/vnpay-return";
     private long timeoutMinutes = 15;
+
+    /**
+     * Cho phép return URL settle payment thay IPN (chỉ dùng khi test local,
+     * vì VNPAY IPN không gọi được tới localhost). Mặc định TẮT — production
+     * chỉ settle qua IPN đã verify chữ ký.
+     */
+    private boolean returnFallbackEnabled = false;
 }

@@ -84,8 +84,12 @@ class BookingServiceTest {
                 vehicleRepository,
                 loyaltyService,promotionRepository,
                 notificationRepository,
-                promotionUsageRepository
+                promotionUsageRepository,
+                new swp391.carwash.security.GarageAccessEvaluator()
         );
+        // @Value không được inject khi khởi tạo bằng constructor trong unit test
+        org.springframework.test.util.ReflectionTestUtils.setField(bookingService, "maxAdvanceDays", 30);
+        org.springframework.test.util.ReflectionTestUtils.setField(bookingService, "paymentTimeoutMinutes", 15);
     }
 
     @Test
@@ -103,7 +107,7 @@ class BookingServiceTest {
     }
 
     @Test
-    void createBookingRejectsClientSuppliedDiscountUntilDiscountEngineExists() {
+    void createBookingRejectsUnknownPromotion() {
         when(principal.getRoleNames()).thenReturn(List.of("CUSTOMER"));
         when(principal.getId()).thenReturn(10);
 
@@ -129,9 +133,9 @@ class BookingServiceTest {
 
         ApiException exception = assertThrows(ApiException.class, () -> bookingService.createBooking(request, principal));
 
-        assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
-        assertEquals("Discount is not supported yet", exception.getMessage());
-        verify(bookingRepository, never()).save(any(Booking.class));    }
+        assertEquals(HttpStatus.NOT_FOUND, exception.getStatus());
+        verify(bookingRepository, never()).save(any(Booking.class));
+    }
 
     @Test
     void completeRejectsUnpaidBooking() {

@@ -40,6 +40,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 @Service
 @RequiredArgsConstructor
 public class VnpayService {
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(VnpayService.class);
     private static final String PROVIDER = "VNPAY";
     private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter VNPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -153,16 +154,19 @@ public class VnpayService {
             if (attempt != null) {
                 paymentId = attempt.getPayment().getId();
                 result = isSuccessfulCallback(callbackParameters) ? "success" : "failed";
-                
-                // Fallback for local testing when IPN cannot reach localhost
-                if (attempt.getStatus() == PaymentTransactionStatus.PENDING) {
+
+                // Fallback settle qua return URL — CHỈ dùng khi test local (IPN không tới được localhost).
+                // Production phải tắt (return-fallback-enabled=false, mặc định) — chỉ settle qua IPN.
+                if (properties.isReturnFallbackEnabled()
+                        && attempt.getStatus() == PaymentTransactionStatus.PENDING) {
                     try {
                         VnpayIpnResponse fallbackResponse = processVerifiedIpn(callbackParameters);
                         if (!"00".equals(fallbackResponse.rspCode())) {
-                            System.err.println("Fallback IPN failed with code: " + fallbackResponse.rspCode() + " - " + fallbackResponse.message());
+                            log.warn("Fallback IPN failed: code={}, message={}",
+                                    fallbackResponse.rspCode(), fallbackResponse.message());
                         }
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        log.error("Fallback IPN processing error", e);
                     }
                 }
             }
