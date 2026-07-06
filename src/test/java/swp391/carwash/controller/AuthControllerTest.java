@@ -10,7 +10,6 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.mail.javamail.JavaMailSender;
-import org.mockito.Mockito;
 
 import swp391.carwash.dto.LoginRequest;
 import swp391.carwash.dto.RegisterRequest;

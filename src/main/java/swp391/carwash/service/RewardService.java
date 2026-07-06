@@ -5,7 +5,6 @@ import org.springframework.data.domain.Pageable;
 import swp391.carwash.dto.request.Reward.RewardCreateRequest;
 import swp391.carwash.dto.request.Reward.RewardUpdateRequest;
 import swp391.carwash.dto.response.Reward.RewardResponse;
-import swp391.carwash.entity.Reward;
 
 public interface RewardService {
     RewardResponse createReward(RewardCreateRequest request);

@@ -2,6 +2,7 @@ package swp391.carwash.Schedule;
 
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,9 @@ public class BookingReminderScheduler {
 
     private final BookingRepository bookingRepository;
     private final JavaMailSender mailSender;
+
+    @Value("${app.mail.from}")
+    private String mailFrom;
 
 
     @Scheduled(fixedRate = 5000)
@@ -36,6 +40,7 @@ public class BookingReminderScheduler {
             try {
                 // 2. Viết logic tạo và gửi Gmail thực tế
                 org.springframework.mail.SimpleMailMessage message = new org.springframework.mail.SimpleMailMessage();
+                message.setFrom(mailFrom);
                 message.setTo(booking.getUser().getEmail());
                 message.setSubject("Nhắc nhở lịch rửa xe của bạn");
                 message.setText("Chào bạn, lịch đặt của bạn (Mã: " + booking.getId() + ") sẽ bắt đầu trong 1 tiếng nữa!");

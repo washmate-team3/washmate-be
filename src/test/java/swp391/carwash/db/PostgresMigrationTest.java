@@ -10,7 +10,6 @@ import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Statement;
 import java.time.LocalDate;
 import java.util.UUID;
 import org.flywaydb.core.Flyway;
@@ -43,6 +42,9 @@ class PostgresMigrationTest {
             assertRlsEnabled(connection, "app_user");
             assertRlsEnabled(connection, "booking");
             assertRlsEnabled(connection, "payment");
+            assertRlsEnabled(connection, "insight_rule_config");
+            assertRlsEnabled(connection, "business_insight");
+            assertRlsEnabled(connection, "insight_ai_enrichment");
         }
     }
 

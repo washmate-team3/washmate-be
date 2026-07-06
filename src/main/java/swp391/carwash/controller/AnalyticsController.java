@@ -26,7 +26,7 @@ public class AnalyticsController {
 //            @RequestParam Integer garageId,
 //            @RequestParam String monthYear // Định dạng YYYY-MM
 //    ) {
-//        // TODO: Gọi sang analyticsService.getGarageMetrics(garageId, monthYear)
+//        // Gọi sang analyticsService.getGarageMetrics(garageId, monthYear)
 //        return ResponseEntity.ok(new GarageDashboardMetrics());
 //    }
     public ResponseEntity<Map<String, Object>> getGarageDashboard() {
@@ -39,7 +39,7 @@ public class AnalyticsController {
     public ResponseEntity<List<BehavioralLogResponse>> getBehavioralLogs(
             @RequestParam(required = false) Integer userId,
             @RequestParam(required = false) String monthYear) {
-        // TODO: Gọi sang analyticsService.getMonthlyBehaviorLogs(userId, monthYear)
+        // Gọi sang analyticsService.getMonthlyBehaviorLogs(userId, monthYear)
         return ResponseEntity.ok(List.of());
     }
 
@@ -48,7 +48,7 @@ public class AnalyticsController {
     public ResponseEntity<List<CustomerSegmentResponse>> getCustomerSegments(
             @RequestParam(required = false) String segmentName,
             @RequestParam(required = false) String monthYear) {
-        // TODO: Gọi sang analyticsService.getCustomerSegments(segmentName, monthYear)
+        // Gọi sang analyticsService.getCustomerSegments(segmentName, monthYear)
         return ResponseEntity.ok(List.of());
     }
 }

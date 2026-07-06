@@ -1,5 +1,5 @@
 package swp391.carwash.enums;
 
 public enum TransactionType {
-    EARN,ROLLBACK
+    EARN,ROLLBACK,REDEEM
 }

@@ -11,7 +11,6 @@ import swp391.carwash.dto.request.Garages.CreateGarageRequest;
 import swp391.carwash.dto.request.Garages.UpdateGarageRequest;
 import swp391.carwash.dto.response.Garages.GarageResponse;
 import swp391.carwash.entity.Garage;
-import swp391.carwash.repository.GarageRepository;
 import swp391.carwash.service.GarageService;
 
 import java.util.List;
@@ -22,12 +21,9 @@ import java.util.List;
 public class GarageController {
 
     private final GarageService garageService;
-    private final GarageRepository garageRepository;
 
-    public GarageController(GarageService garageService,
-                            GarageRepository garageRepository) {
+    public GarageController(GarageService garageService) {
         this.garageService = garageService;
-        this.garageRepository = garageRepository;
     }
 
     // 1. API Tạo mới một Garage (Hứng CreateGarageRequest, trả GarageResponse)

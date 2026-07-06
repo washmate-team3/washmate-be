@@ -110,16 +110,30 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
       @Param("fromDate") LocalDate fromDate,
       @Param("statuses") Collection<BookingStatus> statuses);
 
+  @Query("""
+          SELECT b
+          FROM Booking b
+          WHERE b.reminderSent = false
+            AND b.checkinTime BETWEEN :startTime AND :endTime
+            AND b.status = 'CONFIRMED'
+      """)
+  List<Booking> findBookingNeedReminder(
+      @Param("startTime") OffsetDateTime startTime,
+      @Param("endTime") OffsetDateTime endTime);
+
+  @EntityGraph(attributePaths = { "user", "garage", "slot", "service" })
+  @Query("""
+      SELECT b FROM Booking b
+      WHERE b.bookingDate >= :fromDate
+        AND b.bookingDate <= :toDate
+      """)
+  List<Booking> findForInsightPeriod(
+      @Param("fromDate") LocalDate fromDate,
+      @Param("toDate") LocalDate toDate);
 
   @Query("""
-        SELECT b
-        FROM Booking b
-        WHERE b.reminderSent = false
-          AND b.checkinTime BETWEEN :startTime AND :endTime
-          AND b.status = 'CONFIRMED'
-    """)
-  List<Booking> findBookingNeedReminder(
-          @Param("startTime") OffsetDateTime startTime,
-          @Param("endTime") OffsetDateTime endTime
-  );
+      SELECT DISTINCT b.user.id FROM Booking b
+      WHERE b.bookingDate < :beforeDate
+      """)
+  List<Integer> findDistinctCustomerIdsWithBookingBefore(@Param("beforeDate") LocalDate beforeDate);
 }
