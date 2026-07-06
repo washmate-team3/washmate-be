@@ -48,8 +48,52 @@ public class LoyaltyService {
         LoyaltyAccount account = getOrCreateAccount(booking,policy);
         updateAccount(account, point);
         saveEarnTransaction(account, booking, point);
-        refreshTier(account);
+        evaluateUpgrade(account);
     }
+
+    private void evaluateUpgrade(LoyaltyAccount account) {
+
+        MembershipTier currentTier = account.getTier();
+
+        MembershipTier highestTier =
+                membershipTierRepository
+                        .findFirstByGarageIdAndStatusAndMinPointsLessThanEqualOrderByMinPointsDesc(
+                                account.getGarage().getId(),
+                                RecordStatus.ACTIVE,
+                                account.getTotalPoints())
+                        .orElse(currentTier);
+
+        // Không đủ điều kiện nâng hạng
+        if (highestTier.getMinPoints() <= currentTier.getMinPoints()) {
+            return;
+        }
+
+        account.setTier(highestTier);
+        account.setUpdatedAt(OffsetDateTime.now());
+
+        loyaltyAccountRepository.save(account);
+
+        saveUpgradeHistory(account, currentTier, highestTier);
+    }
+    private void saveUpgradeHistory(
+            LoyaltyAccount account,
+            MembershipTier oldTier,
+            MembershipTier newTier) {
+
+        LoyaltyTierHistory history =
+                LoyaltyTierHistory.builder()
+                        .account(account)
+                        .garage(account.getGarage())
+                        .oldTier(oldTier)
+                        .newTier(newTier)
+                        .changeType(TierChangeType.UPGRADE)
+                        .changeReason("Tự động nâng hạng khi đủ điểm")
+                        .createdAt(OffsetDateTime.now())
+                        .build();
+
+        loyaltyTierHistoryRepository.save(history);
+    }
+
 
     @Transactional
     public void rollbackEarnedPointsForBooking(Booking booking) {
@@ -57,7 +101,6 @@ public class LoyaltyService {
         validateRollback(earned);
         LoyaltyAccount account = earned.getAccount();
         rollbackAccount(account, earned);
-        refreshTier(account);
         saveRollbackTransaction(account, booking, earned);
     }
 
@@ -224,66 +267,5 @@ public class LoyaltyService {
                 .orElseThrow(() ->
                         new IllegalStateException("Loyalty policy not found."));
     }
-    private void refreshTier(LoyaltyAccount account) {
 
-        MembershipTier currentTier = account.getTier();
-
-        MembershipTier newTier = determineTier(account);
-
-        if (currentTier.getId().equals(newTier.getId())) {
-            return;
-        }
-        account.setTier(newTier);
-        account.setUpdatedAt(OffsetDateTime.now());
-
-        saveTierHistory(account, currentTier, newTier);
-    }
-
-    private void saveTierHistory(
-            LoyaltyAccount account,
-            MembershipTier oldTier,
-            MembershipTier newTier) {
-
-        TierChangeType type;
-
-        if (newTier.getMinPoints() > oldTier.getMinPoints()) {
-            type = TierChangeType.UPGRADE;
-        } else {
-            type = TierChangeType.DOWNGRADE;
-        }
-
-        LoyaltyTierHistory history =
-                LoyaltyTierHistory.builder()
-                        .account(account)
-                        .garage(account.getGarage())
-                        .oldTier(oldTier)
-                        .newTier(newTier)
-                        .changeType(type)
-                        .changeReason("Automatic tier recalculation")
-                        .createdAt(OffsetDateTime.now())
-                        .build();
-
-        loyaltyTierHistoryRepository.save(history);
-    }
-        private MembershipTier determineTier(LoyaltyAccount account) {
-
-        MembershipTier current = account.getTier();
-
-        int points = account.getTotalPoints();
-        MembershipTier highestQualified =
-                membershipTierRepository
-                        .findFirstByGarageIdAndStatusAndMinPointsLessThanEqualOrderByMinPointsDesc(
-                                account.getGarage().getId(),
-                                RecordStatus.ACTIVE,
-                                points)
-                        .orElse(current);
-
-        if (highestQualified.getMinPoints() > current.getMinPoints()) {
-            return highestQualified;
-        }
-        if (points >= current.getMaintainPoints()) {
-            return current;
-        }
-        return highestQualified;
-    }
 }
