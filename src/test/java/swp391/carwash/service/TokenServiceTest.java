@@ -36,13 +36,15 @@ class TokenServiceTest {
     private JwtService jwtService;
     @Mock
     private AppUserDetails userDetails;
+    @Mock
+    private org.springframework.transaction.PlatformTransactionManager transactionManager;
 
     private TokenService tokenService;
     private AppUser user;
 
     @BeforeEach
     void setUp() {
-        tokenService = new TokenService(userDetailsService, refreshTokenRepository, jwtService);
+        tokenService = new TokenService(userDetailsService, refreshTokenRepository, jwtService, transactionManager);
         user = AppUser.builder()
                 .id(10)
                 .email("user@example.com")

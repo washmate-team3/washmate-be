@@ -46,9 +46,13 @@ public class BookingService {
     private final PromotionRepository promotionRepository;
     private final NotificationRepository notificationRepository;
     private final PromotionUsageRepository promotionUsageRepository;
+    private final swp391.carwash.security.GarageAccessEvaluator garageAccessEvaluator;
 
     @Value("${washmate.payment.vnpay.timeout-minutes:15}")
     private int paymentTimeoutMinutes;
+
+    @Value("${washmate.booking.max-advance-days:30}")
+    private int maxAdvanceDays;
 
     @Transactional
     public BookingResponse createBooking(BookingCreateRequest request, AppUserDetails principal) {
@@ -255,6 +259,11 @@ public class BookingService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Vehicle does not belong to the customer");
         }
 
+        validateBookingDate(request.bookingDate());
+        if (bookingRepository.existsActiveBookingForUserAndSlot(
+                booking.getUser().getId(), newSlot.getId(), request.bookingDate(), CAPACITY_BLOCKING_STATUSES, booking.getId())) {
+            throw new ApiException(HttpStatus.CONFLICT, "Khách hàng đã có lịch đặt cho khung giờ này");
+        }
         long activeBookings = bookingRepository.countActiveBookingsForUpdate(newSlot.getId(), newGarage.getId(), request.bookingDate(), CAPACITY_BLOCKING_STATUSES, booking.getId());
         if (activeBookings >= newSlot.getMaxCapacity()) {
             throw new ApiException(HttpStatus.CONFLICT, "New booking slot is full");
@@ -278,8 +287,8 @@ public class BookingService {
         notificationRepository.save(Notification.builder()
                 .userId(booking.getUser().getId())
                 .bookingId(booking.getId())
-                .title("cập nhập thành công")
-                .content(String.format("Đơn đặt lịch %s của bạn đã được hủy bỏ thành công.", booking.getBookingCode()))
+                .title("Cập nhật đặt lịch thành công")
+                .content(String.format("Đơn đặt lịch %s của bạn đã được cập nhật thành công.", booking.getBookingCode()))
                 .type("BOOKING_CONFIRMATION")
                 .channel("IN_APP")
                 .status("PENDING")
@@ -443,9 +452,20 @@ public class BookingService {
         authorizeGarageOperation(booking, principal);
         requireStatus(booking, BookingStatus.CONFIRMED, "Only CONFIRMED booking can be marked as NO_SHOW");
 
+        OffsetDateTime now = OffsetDateTime.now();
         booking.setStatus(BookingStatus.NO_SHOW);
-        booking.setNoShowAt(OffsetDateTime.now());
-        return responseWithPaymentAndInvoice(booking);
+        booking.setNoShowAt(now);
+
+        // Khách không đến → đóng payment PENDING kèm theo (nếu có)
+        Payment payment = paymentRepository.findByBookingId(bookingId).orElse(null);
+        if (payment != null && payment.getStatus() == PaymentStatus.PENDING) {
+            payment.setStatus(PaymentStatus.CANCELLED);
+            payment.setUpdatedAt(now);
+            recordPaymentTransaction(payment, PaymentTransactionStatus.CANCELLED, "MANUAL", null);
+        }
+
+        Invoice invoice = invoiceRepository.findByBookingId(bookingId).orElse(null);
+        return BookingResponse.from(booking, payment, invoice);
     }
 
     private void validateBookingInputs(BookingCreateRequest request, AppUser customer, Garage garage, BookingSlot slot,
@@ -471,10 +491,26 @@ public class BookingService {
         if (!vehicle.getUser().getId().equals(customer.getId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Vehicle does not belong to current user");
         }
+        validateBookingDate(request.bookingDate());
+        if (bookingRepository.existsActiveBookingForUserAndSlot(
+                customer.getId(), slot.getId(), request.bookingDate(), CAPACITY_BLOCKING_STATUSES, null)) {
+            throw new ApiException(HttpStatus.CONFLICT, "Bạn đã có lịch đặt cho khung giờ này");
+        }
         long activeBookings = bookingRepository.countActiveBookings(slot.getId(), garage.getId(), request.bookingDate(),
                 CAPACITY_BLOCKING_STATUSES);
         if (activeBookings >= slot.getMaxCapacity()) {
             throw new ApiException(HttpStatus.CONFLICT, "Booking slot is full");
+        }
+    }
+
+    private void validateBookingDate(LocalDate bookingDate) {
+        LocalDate today = LocalDate.now();
+        if (bookingDate.isBefore(today)) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "Ngày đặt lịch không được ở quá khứ");
+        }
+        if (bookingDate.isAfter(today.plusDays(maxAdvanceDays))) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Chỉ được đặt lịch trước tối đa " + maxAdvanceDays + " ngày");
         }
     }
 
@@ -522,12 +558,7 @@ public class BookingService {
     }
 
     private boolean canOperateGarage(Booking booking, AppUserDetails principal) {
-        List<String> roles = principal.getRoleNames();
-        if (roles.contains("ADMIN") || roles.contains("OWNER")) {
-            return true;
-        }
-        return (roles.contains("STAFF") || roles.contains("MANAGER"))
-                && principal.getGarageIds().contains(booking.getGarage().getId());
+        return garageAccessEvaluator.canOperate(booking.getGarage().getId(), principal);
     }
 
     private String generateBookingCode() {

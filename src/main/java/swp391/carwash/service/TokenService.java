@@ -7,7 +7,10 @@ import java.util.Base64;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.dto.AuthResponse;
 import swp391.carwash.entity.AppUser;
@@ -24,6 +27,7 @@ public class TokenService {
     private final AppUserDetailsService userDetailsService;
     private final RefreshTokenRepository refreshTokenRepository;
     private final JwtService jwtService;
+    private final PlatformTransactionManager transactionManager;
 
     @Transactional
     public AuthResponse issueTokens(Integer userId) {
@@ -42,7 +46,18 @@ public class TokenService {
         OffsetDateTime now = OffsetDateTime.now();
         RefreshToken current = refreshTokenRepository.findByTokenHash(currentHash)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "Invalid refresh token"));
-        if (!current.getUser().getId().equals(userId) || current.getRevokedAt() != null || !current.getExpiresAt().isAfter(now)) {
+        if (current.getRevokedAt() != null) {
+            // Reuse detection: token đã rotate/revoke mà bị dùng lại → có thể token bị đánh cắp.
+            // Revoke toàn bộ phiên của user để buộc đăng nhập lại.
+            // Chạy trong transaction RIÊNG (REQUIRES_NEW) để không bị rollback khi throw exception bên dưới.
+            Integer compromisedUserId = current.getUser().getId();
+            TransactionTemplate template = new TransactionTemplate(transactionManager);
+            template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+            template.executeWithoutResult(status ->
+                    refreshTokenRepository.revokeAllActiveByUserId(compromisedUserId, now));
+            throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+        }
+        if (!current.getUser().getId().equals(userId) || !current.getExpiresAt().isAfter(now)) {
             throw new ApiException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
         }
 

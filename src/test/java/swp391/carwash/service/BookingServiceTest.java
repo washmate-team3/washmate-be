@@ -84,8 +84,12 @@ class BookingServiceTest {
                 vehicleRepository,
                 loyaltyService,promotionRepository,
                 notificationRepository,
-                promotionUsageRepository
+                promotionUsageRepository,
+                new swp391.carwash.security.GarageAccessEvaluator()
         );
+        // @Value không được inject khi khởi tạo bằng constructor trong unit test
+        org.springframework.test.util.ReflectionTestUtils.setField(bookingService, "maxAdvanceDays", 30);
+        org.springframework.test.util.ReflectionTestUtils.setField(bookingService, "paymentTimeoutMinutes", 15);
     }
 
     @Test

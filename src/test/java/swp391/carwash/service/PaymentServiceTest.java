@@ -69,7 +69,8 @@ class PaymentServiceTest {
                 paymentRepository,
                 paymentTransactionRepository,
                 loyaltyService,
-                new PaymentSettlementService(invoiceRepository, org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class)));
+                new PaymentSettlementService(invoiceRepository, org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class)),
+                new swp391.carwash.security.GarageAccessEvaluator());
 
         Garage garage = Garage.builder().id(1).name("Garage 1").address("Address").phone("0900000000").build();
         AppUser customer = AppUser.builder().id(10).fullName("Customer").phone("0911111111").build();

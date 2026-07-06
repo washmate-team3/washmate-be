@@ -43,6 +43,7 @@ public class PaymentService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final LoyaltyService loyaltyService;
     private final PaymentSettlementService paymentSettlementService;
+    private final swp391.carwash.security.GarageAccessEvaluator garageAccessEvaluator;
 
     @Transactional(readOnly = true)
     public PaymentResponse getPayment(Integer paymentId, AppUserDetails principal) {
@@ -215,12 +216,7 @@ public class PaymentService {
     }
 
     private boolean canOperateGarage(Booking booking, AppUserDetails principal) {
-        List<String> roles = principal.getRoleNames();
-        if (roles.contains("ADMIN") || roles.contains("OWNER")) {
-            return true;
-        }
-        return (roles.contains("STAFF") || roles.contains("MANAGER"))
-                && principal.getGarageIds().contains(booking.getGarage().getId());
+        return garageAccessEvaluator.canOperate(booking.getGarage().getId(), principal);
     }
 
     private void ensureProviderTransactionIsNew(String provider, String providerTxnId) {
