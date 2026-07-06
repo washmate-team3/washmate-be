@@ -14,4 +14,7 @@ public interface LoyaltyAccountRepository extends JpaRepository<LoyaltyAccount, 
 
     Optional<LoyaltyAccount> findByUserIdAndGarageId(Integer userId, Integer garageId);
 
+    Boolean existsByTierId(Integer tierId);
+
+    Optional<LoyaltyAccount> findByUserId(Integer userId);
 }

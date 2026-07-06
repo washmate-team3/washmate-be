@@ -3,9 +3,12 @@ package swp391.carwash.service;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import swp391.carwash.entity.AppUser;
 import swp391.carwash.entity.Promotion;
 import swp391.carwash.repository.PromotionRepository;
+import swp391.carwash.security.AppUserDetails;
 
+import java.security.Principal;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 import java.util.List;
@@ -20,9 +23,9 @@ public class PromotionService {
      * Lấy danh sách mã khuyến mãi khả dụng cho Khách hàng tại 1 garage cụ thể
      */
     @Transactional()
-    public List<Promotion> getAvailablePromotions(Integer garageId) {
+    public List<Promotion> getAvailablePromotions(Integer garageId, AppUserDetails principal) {
         OffsetDateTime now = OffsetDateTime.now();
-        return promotionRepository.findAvailablePromotions(garageId, now);
+        return promotionRepository.findAvailablePromotions(garageId,principal.getId() , now);
     }
 
     /**

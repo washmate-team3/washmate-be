@@ -6,9 +6,17 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-import swp391.carwash.dto.request.vehicles.LoyaltyTierRequest;
+import swp391.carwash.dto.LoyaltyAccountResponse;
+import swp391.carwash.dto.LoyaltyTransactionResponse;
+import swp391.carwash.dto.request.Account.LoyaltyTierRequest;
+import swp391.carwash.dto.response.Loyaty.LoyaltyPolicyResponse;
 import swp391.carwash.dto.response.vehicles.LoyaltyTierResponse;
+import swp391.carwash.security.AppUserDetails;
+import swp391.carwash.service.CustomerLoyaltyService;
 import swp391.carwash.service.LoyaltyTierService;
 
 import java.util.List;
@@ -20,32 +28,41 @@ import java.util.List;
 public class
 CustomerLoyaltyTierController {
 
-    private final LoyaltyTierService loyaltyTierService;
+    private final CustomerLoyaltyService customerLoyaltyService;
 
     @GetMapping
-    @Operation(summary = "Lấy danh sách tất cả các hạng thành viên")
-    public ResponseEntity<List<LoyaltyTierResponse>> getAllTiers() {
-        return ResponseEntity.ok(loyaltyTierService.getAllTiers());
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Get my loyalty account")
+    public ResponseEntity<LoyaltyAccountResponse> getMyLoyalty(
+            @AuthenticationPrincipal AppUserDetails principal) {
+
+        return ResponseEntity.ok(
+                customerLoyaltyService.getMyLoyalty(principal.getId()));
     }
 
-    @PostMapping
-    @Operation(summary = "Tạo mới một hạng thành viên")
-    public ResponseEntity<LoyaltyTierResponse> createTier(@Valid @RequestBody LoyaltyTierRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(loyaltyTierService.createTier(request));
+    @GetMapping("/tiers")
+    public ResponseEntity<List<LoyaltyTierResponse>> getTiers(
+            @RequestParam Integer garageId) {
+
+        return ResponseEntity.ok(
+                customerLoyaltyService.getTiers(garageId));
     }
 
-    @PutMapping("/{id}")
-    @Operation(summary = "Cập nhật thông tin hạng thành viên theo ID")
-    public ResponseEntity<LoyaltyTierResponse> updateTier(
-            @PathVariable Integer id,
-            @Valid @RequestBody LoyaltyTierRequest request) {
-        return ResponseEntity.ok(loyaltyTierService.updateTier(id, request));
+    @GetMapping("/transactions")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Get my loyalty transactions")
+    public ResponseEntity<List<LoyaltyTransactionResponse>> getTransactions(
+            @AuthenticationPrincipal AppUserDetails principal) {
+
+        return ResponseEntity.ok(
+                customerLoyaltyService.getTransactions(principal.getId()));
     }
 
-    @DeleteMapping("/{id}")
-    @Operation(summary = "Xóa hạng thành viên (Chỉ xóa khi không có user nào thuộc hạng này)")
-    public ResponseEntity<Void> deleteTier(@PathVariable Integer id) {
-        loyaltyTierService.deleteTier(id);
-        return ResponseEntity.noContent().build();
+    @GetMapping("/policy")
+    public ResponseEntity<LoyaltyPolicyResponse> getPolicy(
+            @RequestParam Integer garageId) {
+
+        return ResponseEntity.ok(
+                customerLoyaltyService.getPolicy(garageId));
     }
 }

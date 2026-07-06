@@ -21,6 +21,7 @@ import swp391.carwash.entity.LoyaltyAccount;
 import swp391.carwash.entity.LoyaltyTransaction;
 import swp391.carwash.entity.MembershipTier;
 import swp391.carwash.enums.RecordStatus;
+import swp391.carwash.enums.TransactionType;
 import swp391.carwash.repository.LoyaltyAccountRepository;
 import swp391.carwash.repository.LoyaltyTransactionRepository;
 import swp391.carwash.repository.MembershipTierRepository;
@@ -69,7 +70,7 @@ class LoyaltyServiceTest {
 
     @Test
     void accruePointsCalculatesAndSavesProperly() {
-        when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, "EARN")).thenReturn(false);
+        when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100,TransactionType.EARN)).thenReturn(false);
         when(loyaltyAccountRepository.findByUserIdAndGarageId(10, 1)).thenReturn(Optional.of(account));
         when(membershipTierRepository.findFirstByGarageIdAndStatusAndMinPointsLessThanEqualOrderByMinPointsDesc(1, RecordStatus.ACTIVE, 15))
                 .thenReturn(Optional.of(tier));
@@ -83,7 +84,7 @@ class LoyaltyServiceTest {
 
     @Test
     void accruePointsDoesNotRunTwice() {
-        when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, "EARN")).thenReturn(true);
+        when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, TransactionType.EARN)).thenReturn(true);
 
         loyaltyService.accruePoints(booking);
 
@@ -94,7 +95,7 @@ class LoyaltyServiceTest {
     @Test
     void accruePointsNoPointsForZeroAmount() {
         booking.setFinalAmount(BigDecimal.ZERO);
-        when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, "EARN")).thenReturn(false);
+        when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, TransactionType.EARN)).thenReturn(false);
 
         loyaltyService.accruePoints(booking);
 
@@ -103,7 +104,7 @@ class LoyaltyServiceTest {
 
     @Test
     void accruePointsSkipsWhenGarageHasNoActiveTier() {
-        when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, "EARN")).thenReturn(false);
+        when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, TransactionType.EARN)).thenReturn(false);
         when(loyaltyAccountRepository.findByUserIdAndGarageId(10, 1)).thenReturn(Optional.empty());
         when(membershipTierRepository.findFirstByGarageIdAndStatusOrderByMinPointsAsc(1, RecordStatus.ACTIVE))
                 .thenReturn(Optional.empty());
@@ -122,8 +123,8 @@ class LoyaltyServiceTest {
                 .points(5)
                 .build();
 
-        when(loyaltyTransactionRepository.findByBookingIdAndTransactionType(100, "EARN")).thenReturn(Optional.of(earned));
-        when(loyaltyTransactionRepository.existsBySourceTransactionIdAndTransactionType(99, "ROLLBACK")).thenReturn(false);
+        when(loyaltyTransactionRepository.findByBookingIdAndTransactionType(100, TransactionType.EARN)).thenReturn(Optional.of(earned));
+        when(loyaltyTransactionRepository.existsBySourceTransactionIdAndTransactionType(99, TransactionType.ROLLBACK)).thenReturn(false);
         when(membershipTierRepository.findFirstByGarageIdAndStatusAndMinPointsLessThanEqualOrderByMinPointsDesc(1, RecordStatus.ACTIVE, 5))
                 .thenReturn(Optional.of(tier));
 
@@ -144,8 +145,8 @@ class LoyaltyServiceTest {
                 .points(5) // User earned 5, but current balance is 2 (maybe spent some)
                 .build();
 
-        when(loyaltyTransactionRepository.findByBookingIdAndTransactionType(100, "EARN")).thenReturn(Optional.of(earned));
-        when(loyaltyTransactionRepository.existsBySourceTransactionIdAndTransactionType(99, "ROLLBACK")).thenReturn(false);
+        when(loyaltyTransactionRepository.findByBookingIdAndTransactionType(100, TransactionType.EARN)).thenReturn(Optional.of(earned));
+        when(loyaltyTransactionRepository.existsBySourceTransactionIdAndTransactionType(99, TransactionType.ROLLBACK)).thenReturn(false);
         when(membershipTierRepository.findFirstByGarageIdAndStatusAndMinPointsLessThanEqualOrderByMinPointsDesc(1, RecordStatus.ACTIVE, 0))
                 .thenReturn(Optional.of(tier));
 

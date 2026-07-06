@@ -2,7 +2,13 @@ package swp391.carwash.dto;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import swp391.carwash.entity.LoyaltyAccount;
+import swp391.carwash.enums.RecordStatus;
 
 public record LoyaltyAccountResponse(
         Integer accountId,
@@ -14,7 +20,7 @@ public record LoyaltyAccountResponse(
         BigDecimal tierDiscountPercentage,
         Integer totalPoints,
         Integer availablePoints,
-        String status,
+        RecordStatus status,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt
 ) {
@@ -29,9 +35,10 @@ public record LoyaltyAccountResponse(
                 account.getTier().getDiscountPercentage(),
                 account.getTotalPoints(),
                 account.getAvailablePoints(),
-                account.getStatus().name(),
+                account.getStatus(),
                 account.getCreatedAt(),
                 account.getUpdatedAt()
         );
     }
 }
+

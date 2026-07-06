@@ -1,7 +1,10 @@
 package swp391.carwash.dto;
 
 import java.time.OffsetDateTime;
+
+import lombok.Builder;
 import swp391.carwash.entity.LoyaltyTransaction;
+import swp391.carwash.enums.TransactionType;
 
 public record LoyaltyTransactionResponse(
         Integer id,
@@ -11,7 +14,7 @@ public record LoyaltyTransactionResponse(
         Integer bookingId,
         Integer sourceTransactionId,
         Integer points,
-        String transactionType,
+        TransactionType transactionType,
         String description,
         OffsetDateTime earnedAt,
         OffsetDateTime expiresAt,

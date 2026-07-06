@@ -39,6 +39,9 @@ public class MembershipTier {
     @Column(name = "tier_name", nullable = false, length = 50)
     private String tierName;
 
+    @Column(name = "maintain_points" , nullable = false)
+    private Integer maintainPoints;
+
     @Column(name = "min_points", nullable = false)
     private Integer minPoints;
 

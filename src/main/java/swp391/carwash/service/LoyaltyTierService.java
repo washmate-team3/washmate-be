@@ -1,32 +1,19 @@
 package swp391.carwash.service;
 
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import swp391.carwash.dto.request.vehicles.LoyaltyTierRequest;
+import swp391.carwash.dto.request.Account.LoyaltyTierRequest;
 import swp391.carwash.dto.response.vehicles.LoyaltyTierResponse;
-import swp391.carwash.repository.MembershipTierRepository;
 
 import java.util.List;
 
-@Service
-@RequiredArgsConstructor
-public class LoyaltyTierService {
-    
-    private final MembershipTierRepository membershipTierRepository;
+public interface LoyaltyTierService {
 
-    public List<LoyaltyTierResponse> getAllTiers() {
-        return List.of();
-    }
+    List<LoyaltyTierResponse> getAllTiers(Integer garageId);
 
-    public LoyaltyTierResponse createTier(LoyaltyTierRequest request) {
-        return new LoyaltyTierResponse();
-    }
+    LoyaltyTierResponse createTier(Integer garageId, LoyaltyTierRequest request);
 
-    public LoyaltyTierResponse updateTier(Integer id, LoyaltyTierRequest request) {
-        return new LoyaltyTierResponse();
-    }
+    LoyaltyTierResponse updateTier(Integer garageId, Integer tierId, LoyaltyTierRequest request);
 
-    public void deleteTier(Integer id) {
-        // deletion logic
-    }
+    void deleteTier(Integer garageId, Integer tierId);
+
+    LoyaltyTierResponse getById(Integer garageId, Integer id);
 }

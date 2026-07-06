@@ -2,6 +2,7 @@ package swp391.carwash.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -66,6 +67,9 @@ class BookingServiceTest {
     @Mock
     private NotificationRepository notificationRepository;
 
+    @Mock
+    private PromotionUsageRepository promotionUsageRepository;
+
     @BeforeEach
     void setUp() {
         bookingService = new BookingService(
@@ -79,7 +83,8 @@ class BookingServiceTest {
                 servicePackageRepository,
                 vehicleRepository,
                 loyaltyService,promotionRepository,
-                notificationRepository
+                notificationRepository,
+                promotionUsageRepository
         );
     }
 
@@ -126,8 +131,7 @@ class BookingServiceTest {
 
         assertEquals(HttpStatus.BAD_REQUEST, exception.getStatus());
         assertEquals("Discount is not supported yet", exception.getMessage());
-        verify(bookingRepository, never()).save(org.mockito.ArgumentMatchers.any(Booking.class));
-    }
+        verify(bookingRepository, never()).save(any(Booking.class));    }
 
     @Test
     void completeRejectsUnpaidBooking() {

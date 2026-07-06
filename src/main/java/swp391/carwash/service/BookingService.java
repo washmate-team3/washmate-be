@@ -45,6 +45,7 @@ public class BookingService {
     private final LoyaltyService loyaltyService;
     private final PromotionRepository promotionRepository;
     private final NotificationRepository notificationRepository;
+    private final PromotionUsageRepository promotionUsageRepository;
 
     @Value("${washmate.payment.vnpay.timeout-minutes:15}")
     private int paymentTimeoutMinutes;
@@ -65,48 +66,14 @@ public class BookingService {
 
         validateBookingInputs(request, customer, garage, slot, service, vehicle);
 
-
         BigDecimal totalAmount = service.getPrice();
-        Promotion promotion = null;
-        // 1. Tạo một biến tạm thời để tính toán, chưa chốt discountAmount vội
-        BigDecimal calculatedDiscount = BigDecimal.ZERO;
 
-        if (request.promotionId() != null) {
-            OffsetDateTime now = OffsetDateTime.now();
-            promotion = promotionRepository.findById(request.promotionId())
-                    .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Mã khuyến mãi không tồn tại"));
+        BigDecimal discountAmount = calculateDiscount(
+                customer.getId(),
+                garage,
+                service,
+                request.promotionId());
 
-            if (!"ACTIVE".equals(promotion.getStatus()) ||
-                    now.isBefore(promotion.getStartDate()) ||
-                    now.isAfter(promotion.getEndDate()) ||
-                    (promotion.getUsageLimit() != null && promotion.getUsedCount() >= promotion.getUsageLimit()) ||
-                    totalAmount.compareTo(promotion.getMinOrderValue()) < 0) {
-
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Mã khuyến mãi không hợp lệ hoặc đã hết hạn");
-            }
-            if (!promotion.getGarageId().equals(garage.getId())) {
-                throw new ApiException(HttpStatus.BAD_REQUEST, "Mã khuyến mãi không áp dụng cho garage này");
-            }
-
-            if ("PERCENTAGE".equals(promotion.getDiscountType())) {
-                BigDecimal percentFactor = promotion.getDiscountValue().divide(new BigDecimal("100"));
-                calculatedDiscount = totalAmount.multiply(percentFactor);
-
-                if (promotion.getMaxDiscount() != null && calculatedDiscount.compareTo(promotion.getMaxDiscount()) > 0) {
-                    calculatedDiscount = promotion.getMaxDiscount();
-                }
-            } else if ("FIXED_AMOUNT".equals(promotion.getDiscountType())) {
-                calculatedDiscount = promotion.getDiscountValue();
-            }
-
-            if (calculatedDiscount.compareTo(totalAmount) > 0) {
-                calculatedDiscount = totalAmount;
-            }
-        }
-
-        // 2. Chốt hạ giá trị cuối cùng vào biến final này.
-        // Biến này chỉ được gán đúng 1 lần duy nhất, IDE sẽ hết báo cảnh báo Reassigned.
-        final BigDecimal discountAmount = calculatedDiscount;
         BigDecimal finalAmount = totalAmount.subtract(discountAmount);
 
         Booking booking = bookingRepository.save(Booking.builder()
@@ -123,6 +90,28 @@ public class BookingService {
                 .status(BookingStatus.PENDING)
                 .build());
         bookingRepository.flush();
+
+        if (request.promotionId() != null) {
+
+            Promotion promotion = promotionRepository.findById(request.promotionId())
+                    .orElseThrow(() -> new ApiException(
+                            HttpStatus.NOT_FOUND,
+                            "Mã khuyến mãi không tồn tại"));
+
+            promotionUsageRepository.save(
+                    PromotionUsage.builder()
+                            .promotion(promotion)
+                            .user(customer)
+                            .booking(booking)
+                            .usedAt(OffsetDateTime.now())
+                            .build()
+
+            );
+            promotion.setUsedCount(promotion.getUsedCount() + 1);
+
+            promotionRepository.save(promotion);
+        }
+
 
         //notification khi đặt lịch chờ xác nhận
         notificationRepository.save(Notification.builder()
@@ -554,6 +543,74 @@ public class BookingService {
                 .amount(payment.getAmount())
                 .status(status)
                 .build());
+    }
+    private BigDecimal calculateDiscount(
+            Integer customerId,
+            Garage garage,
+            ServicePackage service,
+            Integer promotionId) {
+
+        BigDecimal totalAmount = service.getPrice();
+        BigDecimal discount = BigDecimal.ZERO;
+
+        if (promotionId == null) {
+            return discount;
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+
+        Promotion promotion = promotionRepository.findById(promotionId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Mã khuyến mãi không tồn tại"));
+        if (promotionUsageRepository.existsByUser_IdAndPromotion_PromotionId(
+                customerId,
+                promotion.getPromotionId())) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Bạn đã sử dụng mã khuyến mãi này.");
+        }
+
+        if (!"ACTIVE".equals(promotion.getStatus())
+                || now.isBefore(promotion.getStartDate())
+                || now.isAfter(promotion.getEndDate())
+                || (promotion.getUsageLimit() != null
+                && promotion.getUsedCount() >= promotion.getUsageLimit())
+                || totalAmount.compareTo(promotion.getMinOrderValue()) < 0) {
+
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Mã khuyến mãi không hợp lệ hoặc đã hết hạn");
+        }
+
+        if (!promotion.getGarageId().equals(garage.getId())) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Mã khuyến mãi không áp dụng cho garage này");
+        }
+
+        if ("PERCENTAGE".equals(promotion.getDiscountType())) {
+
+            discount = totalAmount.multiply(
+                            promotion.getDiscountValue())
+                    .divide(new BigDecimal("100"));
+
+            if (promotion.getMaxDiscount() != null
+                    && discount.compareTo(promotion.getMaxDiscount()) > 0) {
+
+                discount = promotion.getMaxDiscount();
+            }
+
+        } else if ("FIXED_AMOUNT".equals(promotion.getDiscountType())) {
+
+            discount = promotion.getDiscountValue();
+        }
+
+        if (discount.compareTo(totalAmount) > 0) {
+            discount = totalAmount;
+        }
+
+        return discount;
     }
 
 }
