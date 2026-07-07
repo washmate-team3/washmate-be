@@ -38,7 +38,7 @@ public interface LoyaltyTransactionRepository extends JpaRepository<LoyaltyTrans
     }
 
     @Query("""
-SELECT COALESCE(SUM(lt.points),0)
+SELECT COALESCE(SUM(lt.points), 0)
 FROM LoyaltyTransaction lt
 WHERE lt.account.id = :accountId
 AND lt.transactionType = :type
@@ -46,10 +46,10 @@ AND lt.createdAt >= :from
 AND lt.createdAt < :to
 """)
     Integer sumEarnPoint(
-            Integer accountId,
-            TransactionType type,
-            OffsetDateTime from,
-            OffsetDateTime to
+            @Param("accountId") Integer accountId,
+            @Param("type") TransactionType type,
+            @Param("from") OffsetDateTime from,
+            @Param("to") OffsetDateTime to
     );
 
     @EntityGraph(attributePaths = {"account"})

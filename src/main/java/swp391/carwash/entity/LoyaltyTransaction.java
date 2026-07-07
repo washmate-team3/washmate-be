@@ -60,7 +60,4 @@ public class LoyaltyTransaction {
     @Column(name = "expired", nullable = false)
     @Builder.Default
     private Boolean expired = false;
-
-    @Column(name = "remaining_points", nullable = false)
-    private Integer remainingPoints;
 }
