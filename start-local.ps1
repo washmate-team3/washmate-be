@@ -1,7 +1,25 @@
 # ============================================================
 # WashMate Backend - start against Supabase using environment
 # variables supplied by the developer or secret manager.
+# Tu dong nap bien tu file .env (neu co) truoc khi kiem tra.
 # ============================================================
+
+# Nap .env: dong dang KEY=VALUE, bo qua comment (#) va dong trong.
+# Bien da set san trong environment se KHONG bi ghi de.
+$envFile = Join-Path $PSScriptRoot '.env'
+if (Test-Path $envFile) {
+    Write-Host ">>> Loading environment variables from .env..." -ForegroundColor Gray
+    Get-Content $envFile | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -and -not $line.StartsWith('#') -and $line.Contains('=')) {
+            $key, $value = $line.Split('=', 2)
+            $key = $key.Trim()
+            if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($key))) {
+                [Environment]::SetEnvironmentVariable($key, $value.Trim(), 'Process')
+            }
+        }
+    }
+}
 
 $requiredVariables = @(
     'DB_URL',

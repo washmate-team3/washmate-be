@@ -10,7 +10,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,15 +22,10 @@ import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.dto.PaymentActionRequest;
 import swp391.carwash.dto.PaymentConfirmRequest;
 import swp391.carwash.dto.PaymentResponse;
-import swp391.carwash.entity.AppUser;
 import swp391.carwash.entity.Booking;
-import swp391.carwash.entity.BookingSlot;
-import swp391.carwash.entity.Garage;
 import swp391.carwash.entity.Invoice;
 import swp391.carwash.entity.Payment;
 import swp391.carwash.entity.PaymentTransaction;
-import swp391.carwash.entity.ServicePackage;
-import swp391.carwash.entity.Vehicle;
 import swp391.carwash.enums.BookingStatus;
 import swp391.carwash.enums.InvoiceStatus;
 import swp391.carwash.enums.PaymentMethod;
@@ -72,43 +66,10 @@ class PaymentServiceTest {
                 new PaymentSettlementService(invoiceRepository, org.mockito.Mockito.mock(org.springframework.context.ApplicationEventPublisher.class)),
                 new swp391.carwash.security.GarageAccessEvaluator());
 
-        Garage garage = Garage.builder().id(1).name("Garage 1").address("Address").phone("0900000000").build();
-        AppUser customer = AppUser.builder().id(10).fullName("Customer").phone("0911111111").build();
-        Vehicle vehicle = Vehicle.builder().id(20).user(customer).licensePlate("59A1-12345").build();
-        BookingSlot slot = BookingSlot.builder().id(30).garage(garage).build();
-        ServicePackage service = ServicePackage.builder()
-                .id(40)
-                .garage(garage)
-                .name("Basic Wash")
-                .price(new BigDecimal("50000.00"))
-                .duration(30)
-                .build();
+        booking = swp391.carwash.testutil.TestData.pendingBooking("BKG-TEST");
+        payment = swp391.carwash.testutil.TestData.pendingPayment(booking, PaymentMethod.CASH);
 
-        booking = Booking.builder()
-                .id(100)
-                .bookingCode("BKG-TEST")
-                .user(customer)
-                .garage(garage)
-                .slot(slot)
-                .service(service)
-                .vehicle(vehicle)
-                .bookingDate(LocalDate.now())
-                .totalAmount(new BigDecimal("50000.00"))
-                .discountAmount(BigDecimal.ZERO)
-                .finalAmount(new BigDecimal("50000.00"))
-                .status(BookingStatus.PENDING)
-                .build();
-
-        payment = Payment.builder()
-                .id(200)
-                .booking(booking)
-                .garage(garage)
-                .amount(new BigDecimal("50000.00"))
-                .method(PaymentMethod.CASH)
-                .status(PaymentStatus.PENDING)
-                .build();
-
-        lenient().when(principal.getRoleNames()).thenReturn(List.of("ADMIN"));
+        lenient().when(principal.getRoleNames()).thenReturn(List.of("OWNER"));
     }
 
     @Test
