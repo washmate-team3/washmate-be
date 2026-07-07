@@ -107,7 +107,10 @@ class OwnershipAuthorizationServiceSecurityTest {
                 loyaltyService,
                 paymentSettlementService,
                 new swp391.carwash.security.GarageAccessEvaluator());
-        invoiceService = new InvoiceService(bookingRepository, invoiceRepository);
+        invoiceService = new InvoiceService(
+                bookingRepository,
+                invoiceRepository,
+                new swp391.carwash.security.GarageAccessEvaluator());
     }
 
     @Nested

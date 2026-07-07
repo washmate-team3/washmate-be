@@ -155,7 +155,7 @@ public class InsightService {
     }
 
     private DateRange resolveRange(LocalDate fromDate, LocalDate toDate) {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(swp391.carwash.common.TimeZones.VIETNAM);
         LocalDate resolvedTo = toDate != null ? toDate : today;
         LocalDate resolvedFrom = fromDate != null ? fromDate : resolvedTo.withDayOfMonth(1);
 

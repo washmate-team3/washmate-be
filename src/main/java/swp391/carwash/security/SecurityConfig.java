@@ -48,7 +48,9 @@ public class SecurityConfig {
                                 "/api/payments/vnpay/return",
                                 "/api/v1/garages",
                                 "/api/v1/garages/**").permitAll()
-                        .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "OWNER")
+                        // Chặn MỌI prefix admin (cả /api/admin và /api/v1/admin) — controller mới
+                        // dùng prefix nào cũng không lọt xuống anyRequest().authenticated()
+                        .requestMatchers("/api/admin/**", "/api/*/admin/**").hasAnyRole("ADMIN", "OWNER")
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptions -> exceptions

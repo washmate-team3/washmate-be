@@ -35,28 +35,39 @@ public class ReportAggregationService {
 
     @Transactional(readOnly = true)
     public InsightAnalysisContext aggregate(LocalDate fromDate, LocalDate toDate) {
+        return aggregate(fromDate, toDate, null);
+    }
+
+    @Transactional(readOnly = true)
+    public InsightAnalysisContext aggregate(LocalDate fromDate, LocalDate toDate, Integer garageId) {
         long periodDays = ChronoUnit.DAYS.between(fromDate, toDate) + 1;
         LocalDate previousTo = fromDate.minusDays(1);
         LocalDate previousFrom = previousTo.minusDays(periodDays - 1);
-        ZoneId zone = ZoneId.systemDefault();
+        ZoneId zone = swp391.carwash.common.TimeZones.VIETNAM;
 
-        var activeServices = servicePackageRepository.findByStatus(RecordStatus.ACTIVE);
-        long accountsWithAvailablePoints = loyaltyAccountRepository.countAccountsWithAvailablePoints(RecordStatus.ACTIVE);
+        List<ServicePackage> activeServices = servicePackageRepository.findActiveForInsightScope(
+                RecordStatus.ACTIVE,
+                garageId);
+        long accountsWithAvailablePoints = loyaltyAccountRepository.countAccountsWithAvailablePointsForScope(
+                RecordStatus.ACTIVE,
+                garageId);
 
         InsightMetrics current = loadSnapshot(
                 fromDate,
                 toDate,
                 zone,
-                new HashSet<>(bookingRepository.findDistinctCustomerIdsWithBookingBefore(fromDate)),
+                new HashSet<>(bookingRepository.findDistinctCustomerIdsWithBookingBefore(fromDate, garageId)),
                 activeServices,
-                accountsWithAvailablePoints);
+                accountsWithAvailablePoints,
+                garageId);
         InsightMetrics previous = loadSnapshot(
                 previousFrom,
                 previousTo,
                 zone,
-                new HashSet<>(bookingRepository.findDistinctCustomerIdsWithBookingBefore(previousFrom)),
+                new HashSet<>(bookingRepository.findDistinctCustomerIdsWithBookingBefore(previousFrom, garageId)),
                 activeServices,
-                accountsWithAvailablePoints);
+                accountsWithAvailablePoints,
+                garageId);
 
         return new InsightAnalysisContext(current, previous, OffsetDateTime.now(zone));
     }
@@ -67,7 +78,8 @@ public class ReportAggregationService {
             ZoneId zone,
             HashSet<Integer> customerIdsBeforePeriod,
             List<ServicePackage> activeServices,
-            long accountsWithAvailablePoints) {
+            long accountsWithAvailablePoints,
+            Integer garageId) {
         OffsetDateTime fromTime = fromDate.atStartOfDay(zone).toOffsetDateTime();
         OffsetDateTime toTime = toDate.plusDays(1).atStartOfDay(zone).toOffsetDateTime();
         ZonedDateTime redemptionFromTime = fromDate.atStartOfDay(zone);
@@ -75,10 +87,10 @@ public class ReportAggregationService {
 
         return new InsightMetrics(
                 new InsightPeriod(fromDate, toDate),
-                bookingRepository.findForInsightPeriod(fromDate, toDate),
-                invoiceRepository.findPaidForInsightPeriod(InvoiceStatus.PAID, fromTime, toTime),
-                loyaltyTransactionRepository.findForInsightPeriod(fromTime, toTime),
-                rewardRedemptionRepository.findForInsightPeriod(redemptionFromTime, redemptionToTime),
+                bookingRepository.findForInsightPeriod(fromDate, toDate, garageId),
+                invoiceRepository.findPaidForInsightPeriod(InvoiceStatus.PAID, fromTime, toTime, garageId),
+                loyaltyTransactionRepository.findForInsightPeriod(fromTime, toTime, garageId),
+                rewardRedemptionRepository.findForInsightPeriod(redemptionFromTime, redemptionToTime, garageId),
                 activeServices,
                 customerIdsBeforePeriod,
                 accountsWithAvailablePoints);

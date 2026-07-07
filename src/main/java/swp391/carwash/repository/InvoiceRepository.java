@@ -60,9 +60,18 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Integer> {
               and invoice.paidAt is not null
               and invoice.paidAt >= :fromTime
               and invoice.paidAt < :toTime
+              and (:garageId is null or invoice.garage.id = :garageId)
             """)
     List<Invoice> findPaidForInsightPeriod(
             @Param("status") InvoiceStatus status,
             @Param("fromTime") OffsetDateTime fromTime,
-            @Param("toTime") OffsetDateTime toTime);
+            @Param("toTime") OffsetDateTime toTime,
+            @Param("garageId") Integer garageId);
+
+    default List<Invoice> findPaidForInsightPeriod(
+            InvoiceStatus status,
+            OffsetDateTime fromTime,
+            OffsetDateTime toTime) {
+        return findPaidForInsightPeriod(status, fromTime, toTime, null);
+    }
 }

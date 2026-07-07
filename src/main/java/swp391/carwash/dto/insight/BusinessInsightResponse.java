@@ -3,6 +3,7 @@ package swp391.carwash.dto.insight;
 import java.time.OffsetDateTime;
 import swp391.carwash.entity.BusinessInsight;
 import swp391.carwash.enums.InsightSeverity;
+import swp391.carwash.enums.InsightSource;
 import swp391.carwash.enums.InsightStatus;
 import swp391.carwash.enums.InsightType;
 
@@ -18,6 +19,8 @@ public record BusinessInsightResponse(
         String recommendation,
         String relatedMetric,
         InsightStatus status,
+        InsightSource source,
+        Boolean verified,
         OffsetDateTime createdAt,
         OffsetDateTime updatedAt,
         AIInsightEnrichResponse aiEnrichment
@@ -39,8 +42,23 @@ public record BusinessInsightResponse(
                 insight.getRecommendation(),
                 insight.getRelatedMetric(),
                 insight.getStatus(),
+                sourceOf(insight, aiEnrichment),
+                verifiedOf(aiEnrichment),
                 insight.getCreatedAt(),
                 insight.getUpdatedAt(),
                 aiEnrichment);
+    }
+
+    private static InsightSource sourceOf(BusinessInsight insight, AIInsightEnrichResponse aiEnrichment) {
+        if (aiEnrichment != null && aiEnrichment.getSource() != null) {
+            return aiEnrichment.getSource();
+        }
+        return insight.getRuleCode() != null && insight.getRuleCode().startsWith("AI_")
+                ? InsightSource.AI_DETECTED
+                : InsightSource.RULE_BASED;
+    }
+
+    private static Boolean verifiedOf(AIInsightEnrichResponse aiEnrichment) {
+        return aiEnrichment == null || aiEnrichment.getVerified() == null ? Boolean.TRUE : aiEnrichment.getVerified();
     }
 }

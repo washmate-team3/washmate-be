@@ -42,7 +42,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 public class VnpayService {
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(VnpayService.class);
     private static final String PROVIDER = "VNPAY";
-    private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
+    private static final ZoneId VIETNAM_ZONE = swp391.carwash.common.TimeZones.VIETNAM;
     private static final DateTimeFormatter VNPAY_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
     private static final EnumSet<BookingStatus> VNPAY_BOOKING_STATUSES = EnumSet.of(
             BookingStatus.PENDING,

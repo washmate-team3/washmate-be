@@ -26,10 +26,16 @@ public interface LoyaltyTransactionRepository extends JpaRepository<LoyaltyTrans
             select transaction from LoyaltyTransaction transaction
             where transaction.createdAt >= :fromTime
               and transaction.createdAt < :toTime
+              and (:garageId is null or transaction.account.garage.id = :garageId)
             """)
     List<LoyaltyTransaction> findForInsightPeriod(
             @Param("fromTime") OffsetDateTime fromTime,
-            @Param("toTime") OffsetDateTime toTime);
+            @Param("toTime") OffsetDateTime toTime,
+            @Param("garageId") Integer garageId);
+
+    default List<LoyaltyTransaction> findForInsightPeriod(OffsetDateTime fromTime, OffsetDateTime toTime) {
+        return findForInsightPeriod(fromTime, toTime, null);
+    }
 
     @Query("""
 SELECT COALESCE(SUM(lt.points),0)

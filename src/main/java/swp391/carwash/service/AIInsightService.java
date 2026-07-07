@@ -3,6 +3,8 @@ package swp391.carwash.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,9 +16,11 @@ import org.springframework.web.server.ResponseStatusException;
 import swp391.carwash.config.GeminiProperties;
 import swp391.carwash.dto.insight.AIInsightEnrichResponse;
 import swp391.carwash.dto.insight.AIInsightResult;
+import swp391.carwash.dto.insight.InsightContext;
 import swp391.carwash.entity.BusinessInsight;
 import swp391.carwash.entity.InsightAIEnrichment;
 import swp391.carwash.enums.InsightStatus;
+import swp391.carwash.enums.InsightSource;
 import swp391.carwash.repository.BusinessInsightRepository;
 import swp391.carwash.repository.InsightAIEnrichmentRepository;
 
@@ -26,11 +30,15 @@ import swp391.carwash.repository.InsightAIEnrichmentRepository;
 public class AIInsightService {
     private final BusinessInsightRepository businessInsightRepository;
     private final InsightAIEnrichmentRepository aiEnrichmentRepository;
+    private final InsightMetricAggregator insightMetricAggregator;
     private final AIPromptBuilderService promptBuilderService;
     private final GeminiClient geminiClient;
     private final AIResponseValidatorService validatorService;
     private final GeminiProperties geminiProperties;
     private final ObjectMapper objectMapper;
+
+    @org.springframework.beans.factory.annotation.Value("${washmate.insight.ai.regenerate-cooldown-seconds:60}")
+    private long regenerateCooldownSeconds;
 
     public AIInsightEnrichResponse enrichInsight(Integer insightId) {
         BusinessInsight insight = businessInsightRepository.findById(insightId)
@@ -51,6 +59,16 @@ public class AIInsightService {
         InsightAIEnrichment enrichment = aiEnrichmentRepository.findByBusinessInsightId(insightId)
                 .orElse(new InsightAIEnrichment());
 
+        // Cooldown chống spam regenerate (mỗi call là 1 lần gọi Gemini = tốn quota).
+        if (enrichment.getGeneratedAt() != null) {
+            OffsetDateTime nextAllowedAt = enrichment.getGeneratedAt()
+                    .plusSeconds(regenerateCooldownSeconds);
+            if (OffsetDateTime.now().isBefore(nextAllowedAt)) {
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Vui lòng chờ trước khi tạo lại phân tích AI cho insight này");
+            }
+        }
+
         return generateAndSaveEnrichment(insight, enrichment);
     }
 
@@ -63,7 +81,8 @@ public class AIInsightService {
     private AIInsightEnrichResponse generateAndSaveEnrichment(BusinessInsight insight, InsightAIEnrichment enrichment) {
         validateInsightBeforeAI(insight);
 
-        String contextJson = promptBuilderService.buildInsightContext(insight);
+        InsightContext insightContext = insightMetricAggregator.buildContext(insight);
+        String contextJson = promptBuilderService.buildContextJson(insightContext);
         String prompt = promptBuilderService.buildPrompt(contextJson);
 
         try {
@@ -78,6 +97,9 @@ public class AIInsightService {
             enrichment.setConfidenceScore(result.getConfidenceScore());
             enrichment.setAiModel(geminiProperties.getModel());
             enrichment.setPromptVersion(geminiProperties.getPrompt().getVersion());
+            enrichment.setSource(InsightSource.RULE_BASED);
+            enrichment.setEvidenceJson(ruleBasedEvidence(insight));
+            enrichment.setVerified(true);
             enrichment.setGeneratedAt(OffsetDateTime.now());
 
             InsightAIEnrichment saved = aiEnrichmentRepository.save(enrichment);
@@ -115,6 +137,17 @@ public class AIInsightService {
         }
     }
 
+    private Map<String, Object> ruleBasedEvidence(BusinessInsight insight) {
+        Map<String, Object> evidence = new LinkedHashMap<>();
+        evidence.put("ruleCode", insight.getRuleCode());
+        evidence.put("relatedMetric", insight.getRelatedMetric());
+        Map<String, Object> period = new LinkedHashMap<>();
+        period.put("from", insight.getFromDate().toString());
+        period.put("to", insight.getToDate().toString());
+        evidence.put("period", period);
+        return evidence;
+    }
+
     private AIInsightEnrichResponse toResponse(InsightAIEnrichment enrichment) {
         try {
             java.util.List<String> recommendation = objectMapper.readValue(enrichment.getAiRecommendation(),
@@ -131,6 +164,9 @@ public class AIInsightService {
                     .confidenceScore(enrichment.getConfidenceScore())
                     .aiModel(enrichment.getAiModel())
                     .promptVersion(enrichment.getPromptVersion())
+                    .source(enrichment.getSource())
+                    .evidence(enrichment.getEvidenceJson())
+                    .verified(enrichment.getVerified())
                     .generatedAt(enrichment.getGeneratedAt())
                     .build();
         } catch (Exception e) {

@@ -28,9 +28,9 @@ public class InsightScheduler {
      * Chạy mỗi ngày lúc 00:30.
      * Phân tích dữ liệu của ngày hôm qua để sinh insight.
      */
-    @Scheduled(cron = "0 30 0 * * *")
+    @Scheduled(cron = "0 30 0 * * *", zone = "Asia/Ho_Chi_Minh")
     public void generateDailyInsights() {
-        LocalDate yesterday = LocalDate.now().minusDays(1);
+        LocalDate yesterday = LocalDate.now(swp391.carwash.common.TimeZones.VIETNAM).minusDays(1);
         log.info("[InsightScheduler] Daily job — generating insights for {}", yesterday);
         try {
             InsightGenerateResponse response = insightService.generateInsights(yesterday, yesterday);
@@ -45,9 +45,9 @@ public class InsightScheduler {
      * Chạy vào ngày 1 hàng tháng lúc 01:00.
      * Phân tích toàn bộ tháng trước để sinh insight tổng hợp.
      */
-    @Scheduled(cron = "0 0 1 1 * *")
+    @Scheduled(cron = "0 0 1 1 * *", zone = "Asia/Ho_Chi_Minh")
     public void generateMonthlyInsights() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(swp391.carwash.common.TimeZones.VIETNAM);
         LocalDate firstDayLastMonth = today.minusMonths(1).withDayOfMonth(1);
         LocalDate lastDayLastMonth = today.withDayOfMonth(1).minusDays(1);
         log.info("[InsightScheduler] Monthly job — generating insights for {} to {}",

@@ -1,19 +1,20 @@
 package swp391.carwash.controller;
 
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import swp391.carwash.config.GeminiProperties;
-import swp391.carwash.dto.insight.AIChatRequest;
-import swp391.carwash.dto.insight.AIChatResponse;
+import swp391.carwash.dto.insight.AIDeepAnalysisRequest;
+import swp391.carwash.dto.insight.AIDeepAnalysisResponse;
 import swp391.carwash.dto.insight.AIHealthResponse;
 import swp391.carwash.dto.insight.AIInsightEnrichResponse;
-import swp391.carwash.service.AIInsightChatService;
+import swp391.carwash.security.AppUserDetails;
+import swp391.carwash.service.AIDeepAnalysisService;
 import swp391.carwash.service.AIInsightService;
 import swp391.carwash.service.GeminiClient;
 
@@ -21,7 +22,7 @@ import swp391.carwash.service.GeminiClient;
 @RequiredArgsConstructor
 public class InsightAIController {
     private final AIInsightService aiInsightService;
-    private final AIInsightChatService aiInsightChatService;
+    private final AIDeepAnalysisService aiDeepAnalysisService;
     private final GeminiClient geminiClient;
     private final GeminiProperties geminiProperties;
 
@@ -37,22 +38,15 @@ public class InsightAIController {
         return aiInsightService.regenerateInsight(id);
     }
 
-    @PostMapping({
-            "/api/owner/insights/ai-chat",
-            "/api/owner/insights/ai/chat",
-            "/api/owner/insights/chat",
-            "/api/owner/ai-chat"
-    })
-    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
-    public AIChatResponse chat(@Valid @RequestBody AIChatRequest request) {
-        return aiInsightChatService.chat(request);
+    @PostMapping("/api/owner/insights/deep-analysis")
+    @PreAuthorize("hasAnyRole('OWNER', 'ADMIN', 'MANAGER')")
+    public AIDeepAnalysisResponse deepAnalysis(
+            @RequestBody(required = false) AIDeepAnalysisRequest request,
+            @AuthenticationPrincipal AppUserDetails principal) {
+        return aiDeepAnalysisService.analyze(request, principal);
     }
 
-    @GetMapping({
-            "/api/owner/insights/ai-health",
-            "/api/owner/insights/ai/health",
-            "/api/owner/ai-health"
-    })
+    @GetMapping("/api/owner/insights/ai-health")
     @PreAuthorize("hasAnyRole('OWNER', 'ADMIN')")
     public AIHealthResponse health() {
         boolean configured = geminiClient.isConfigured();

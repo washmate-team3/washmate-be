@@ -2,13 +2,15 @@ package swp391.carwash.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
-import java.util.ArrayList;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
-import swp391.carwash.dto.insight.AIChatResult;
+import swp391.carwash.dto.insight.AIDeepAnalysisResult;
+import swp391.carwash.dto.insight.AIDetectedInsight;
 import swp391.carwash.dto.insight.AIInsightResult;
+import swp391.carwash.enums.InsightSeverity;
 
 @Service
 @Slf4j
@@ -70,29 +72,52 @@ public class AIResponseValidatorService {
         }
     }
 
-    public AIChatResult parseAndValidateChat(String rawGeminiResponse) {
+    public AIDeepAnalysisResult parseAndValidateDetectedInsights(String rawGeminiResponse) {
         try {
             String jsonContent = extractJsonContent(rawGeminiResponse);
-            AIChatResult result = objectMapper.readValue(jsonContent.trim(), AIChatResult.class);
+            AIDeepAnalysisResult result = objectMapper.readValue(jsonContent.trim(), AIDeepAnalysisResult.class);
+            List<AIDetectedInsight> insights = result.insights() == null ? List.of() : result.insights();
 
-            if (!StringUtils.hasText(result.getAnswer())) {
-                throw new IllegalArgumentException("answer must not be empty");
+            for (AIDetectedInsight insight : insights) {
+                if (!StringUtils.hasText(insight.type())) {
+                    throw new IllegalArgumentException("insight.type must not be empty");
+                }
+                if (!StringUtils.hasText(insight.severity())) {
+                    throw new IllegalArgumentException("insight.severity must not be empty");
+                }
+                parseSeverity(insight.severity());
+                if (!StringUtils.hasText(insight.claim())) {
+                    throw new IllegalArgumentException("insight.claim must not be empty");
+                }
+                if (!StringUtils.hasText(insight.suggestedAction())) {
+                    throw new IllegalArgumentException("insight.suggested_action must not be empty");
+                }
+                if (insight.evidence() == null) {
+                    throw new IllegalArgumentException("insight.evidence must not be null");
+                }
+                if (!StringUtils.hasText(insight.evidence().metric())) {
+                    throw new IllegalArgumentException("insight.evidence.metric must not be empty");
+                }
+                if (insight.evidence().value() == null) {
+                    throw new IllegalArgumentException("insight.evidence.value must not be null");
+                }
             }
-            if (result.getSuggestedActions() == null) {
-                result.setSuggestedActions(new ArrayList<>());
-            }
-            if (result.getReferencedInsightIds() == null) {
-                result.setReferencedInsightIds(new ArrayList<>());
-            }
-            validateConfidenceScore(result.getConfidenceScore());
 
-            return result;
+            return new AIDeepAnalysisResult(List.copyOf(insights));
         } catch (Exception e) {
             if (e instanceof IllegalArgumentException) {
                 throw (IllegalArgumentException) e;
             }
-            log.error("Failed to parse and validate AI chat response", e);
-            throw new IllegalArgumentException("Invalid AI chat response format: " + e.getMessage(), e);
+            log.error("Failed to parse and validate AI deep-analysis response", e);
+            throw new IllegalArgumentException("Invalid AI deep-analysis response format: " + e.getMessage(), e);
+        }
+    }
+
+    private InsightSeverity parseSeverity(String severity) {
+        try {
+            return InsightSeverity.valueOf(severity.trim().toUpperCase());
+        } catch (Exception e) {
+            throw new IllegalArgumentException("insight.severity is invalid");
         }
     }
 
@@ -113,13 +138,5 @@ public class AIResponseValidatorService {
             jsonContent = jsonContent.substring(0, jsonContent.length() - 3);
         }
         return jsonContent.trim();
-    }
-
-    private void validateConfidenceScore(BigDecimal confidenceScore) {
-        if (confidenceScore == null ||
-            confidenceScore.compareTo(BigDecimal.ZERO) < 0 ||
-            confidenceScore.compareTo(BigDecimal.ONE) > 0) {
-            throw new IllegalArgumentException("confidenceScore must be between 0 and 1");
-        }
     }
 }

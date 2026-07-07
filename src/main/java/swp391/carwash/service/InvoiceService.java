@@ -2,14 +2,13 @@ package swp391.carwash.service;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.ZoneId;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import swp391.carwash.common.TimeZones;
 import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.dto.InvoiceResponse;
 import swp391.carwash.entity.Booking;
@@ -18,12 +17,14 @@ import swp391.carwash.enums.InvoiceStatus;
 import swp391.carwash.repository.BookingRepository;
 import swp391.carwash.repository.InvoiceRepository;
 import swp391.carwash.security.AppUserDetails;
+import swp391.carwash.security.GarageAccessEvaluator;
 
 @Service
 @RequiredArgsConstructor
 public class InvoiceService {
     private final BookingRepository bookingRepository;
     private final InvoiceRepository invoiceRepository;
+    private final GarageAccessEvaluator garageAccessEvaluator;
 
     @Transactional(readOnly = true)
     public InvoiceResponse getInvoice(Integer invoiceId, AppUserDetails principal) {
@@ -57,25 +58,18 @@ public class InvoiceService {
     }
 
     private void authorizeBookingRead(Booking booking, AppUserDetails principal) {
-        if (booking.getUser().getId().equals(principal.getId()) || canOperateGarage(booking, principal)) {
+        if (booking.getUser().getId().equals(principal.getId())
+                || garageAccessEvaluator.canOperate(booking.getGarage().getId(), principal)) {
             return;
         }
         throw new ApiException(HttpStatus.FORBIDDEN, "You cannot access this invoice");
-    }
-
-    private boolean canOperateGarage(Booking booking, AppUserDetails principal) {
-        List<String> roles = principal.getRoleNames();
-        if (roles.contains("ADMIN") || roles.contains("OWNER")) {
-            return true;
-        }
-        return (roles.contains("STAFF") || roles.contains("MANAGER"))
-                && principal.getGarageIds().contains(booking.getGarage().getId());
     }
 
     private OffsetDateTime startOfDay(LocalDate date) {
         if (date == null) {
             return null;
         }
-        return date.atStartOfDay(ZoneId.systemDefault()).toOffsetDateTime();
+        // Tính "ngày" theo giờ VN — KHÔNG dùng systemDefault() vì server có thể chạy UTC
+        return date.atStartOfDay(TimeZones.VIETNAM).toOffsetDateTime();
     }
 }

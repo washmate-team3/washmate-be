@@ -16,11 +16,12 @@ public class SecurityErrorResponseWriter {
         response.setStatus(status.value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.getWriter().write("""
-                {"timestamp":"%s","status":%d,"error":"%s","message":"%s"}\
+                {"timestamp":"%s","status":%d,"error":"%s","code":"%s","message":"%s"}\
                 """.formatted(
                 OffsetDateTime.now(),
                 status.value(),
                 escape(status.getReasonPhrase()),
+                escape(status.name()),
                 escape(message)
         ));
     }

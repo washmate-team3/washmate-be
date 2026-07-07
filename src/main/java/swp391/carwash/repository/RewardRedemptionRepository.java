@@ -24,9 +24,14 @@ public interface RewardRedemptionRepository extends JpaRepository<RewardRedempti
             select redemption from RewardRedemption redemption
             where redemption.redeemedAt >= :fromTime
               and redemption.redeemedAt < :toTime
+              and (:garageId is null or redemption.garage.id = :garageId)
             """)
     List<RewardRedemption> findForInsightPeriod(
             @Param("fromTime") ZonedDateTime fromTime,
-            @Param("toTime") ZonedDateTime toTime);
-}
+            @Param("toTime") ZonedDateTime toTime,
+            @Param("garageId") Integer garageId);
 
+    default List<RewardRedemption> findForInsightPeriod(ZonedDateTime fromTime, ZonedDateTime toTime) {
+        return findForInsightPeriod(fromTime, toTime, null);
+    }
+}

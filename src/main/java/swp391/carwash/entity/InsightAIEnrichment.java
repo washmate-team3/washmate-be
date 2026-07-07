@@ -3,7 +3,11 @@ package swp391.carwash.entity;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+import java.util.Map;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import swp391.carwash.enums.InsightSource;
 
 @Getter
 @Setter
@@ -41,6 +45,19 @@ public class InsightAIEnrichment {
 
     @Column(name = "prompt_version", length = 50)
     private String promptVersion;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private InsightSource source = InsightSource.RULE_BASED;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "evidence_json")
+    private Map<String, Object> evidenceJson;
+
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean verified = true;
 
     @Column(name = "generated_at")
     private OffsetDateTime generatedAt;

@@ -10,7 +10,6 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -34,7 +33,6 @@ class InvoiceServiceTest {
     @Mock
     private AppUserDetails principal;
 
-    @InjectMocks
     private InvoiceService invoiceService;
 
     private Invoice invoice;
@@ -44,6 +42,10 @@ class InvoiceServiceTest {
 
     @BeforeEach
     void setUp() {
+        invoiceService = new InvoiceService(
+                bookingRepository,
+                invoiceRepository,
+                new swp391.carwash.security.GarageAccessEvaluator());
         garage = Garage.builder().id(1).build();
         customer = AppUser.builder().id(10).build();
 

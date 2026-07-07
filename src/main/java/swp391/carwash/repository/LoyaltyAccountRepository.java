@@ -28,6 +28,17 @@ public interface LoyaltyAccountRepository extends JpaRepository<LoyaltyAccount, 
             """)
     long countAccountsWithAvailablePoints(@Param("status") RecordStatus status);
 
+    @Query("""
+            select count(account)
+            from LoyaltyAccount account
+            where account.status = :status
+              and account.availablePoints > 0
+              and (:garageId is null or account.garage.id = :garageId)
+            """)
+    long countAccountsWithAvailablePointsForScope(
+            @Param("status") RecordStatus status,
+            @Param("garageId") Integer garageId);
+
     List<LoyaltyAccount> findByStatusAndTierStatus(
             RecordStatus accountStatus,
             RecordStatus tierStatus

@@ -146,14 +146,27 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
       SELECT b FROM Booking b
       WHERE b.bookingDate >= :fromDate
         AND b.bookingDate <= :toDate
+        AND (:garageId IS NULL OR b.garage.id = :garageId)
       """)
   List<Booking> findForInsightPeriod(
       @Param("fromDate") LocalDate fromDate,
-      @Param("toDate") LocalDate toDate);
+      @Param("toDate") LocalDate toDate,
+      @Param("garageId") Integer garageId);
+
+  default List<Booking> findForInsightPeriod(LocalDate fromDate, LocalDate toDate) {
+    return findForInsightPeriod(fromDate, toDate, null);
+  }
 
   @Query("""
       SELECT DISTINCT b.user.id FROM Booking b
       WHERE b.bookingDate < :beforeDate
+        AND (:garageId IS NULL OR b.garage.id = :garageId)
       """)
-  List<Integer> findDistinctCustomerIdsWithBookingBefore(@Param("beforeDate") LocalDate beforeDate);
+  List<Integer> findDistinctCustomerIdsWithBookingBefore(
+      @Param("beforeDate") LocalDate beforeDate,
+      @Param("garageId") Integer garageId);
+
+  default List<Integer> findDistinctCustomerIdsWithBookingBefore(LocalDate beforeDate) {
+    return findDistinctCustomerIdsWithBookingBefore(beforeDate, null);
+  }
 }

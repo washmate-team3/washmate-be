@@ -10,6 +10,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -21,6 +23,7 @@ import org.springframework.web.server.ResponseStatusException;
 import swp391.carwash.config.GeminiProperties;
 import swp391.carwash.entity.BusinessInsight;
 import swp391.carwash.entity.InsightAIEnrichment;
+import swp391.carwash.dto.insight.InsightContext;
 import swp391.carwash.enums.InsightSeverity;
 import swp391.carwash.enums.InsightStatus;
 import swp391.carwash.enums.InsightType;
@@ -35,6 +38,8 @@ class AIInsightServiceTest {
     @Mock
     private InsightAIEnrichmentRepository aiEnrichmentRepository;
     @Mock
+    private InsightMetricAggregator insightMetricAggregator;
+    @Mock
     private AIPromptBuilderService promptBuilderService;
     @Mock
     private GeminiClient geminiClient;
@@ -48,6 +53,7 @@ class AIInsightServiceTest {
         aiInsightService = new AIInsightService(
                 businessInsightRepository,
                 aiEnrichmentRepository,
+                insightMetricAggregator,
                 promptBuilderService,
                 geminiClient,
                 validatorService,
@@ -71,9 +77,11 @@ class AIInsightServiceTest {
     @Test
     void enrichInsightMapsInvalidGeminiResponseToUnprocessableEntity() {
         BusinessInsight insight = validInsight();
+        InsightContext context = new InsightContext("REVENUE", Map.of(), List.of(), List.of(), Map.of());
         when(businessInsightRepository.findById(1)).thenReturn(Optional.of(insight));
         when(aiEnrichmentRepository.findByBusinessInsightId(1)).thenReturn(Optional.empty());
-        when(promptBuilderService.buildInsightContext(insight)).thenReturn("{}");
+        when(insightMetricAggregator.buildContext(insight)).thenReturn(context);
+        when(promptBuilderService.buildContextJson(context)).thenReturn("{}");
         when(promptBuilderService.buildPrompt("{}")).thenReturn("prompt");
         when(geminiClient.generateContent("prompt")).thenReturn("{}");
         when(validatorService.parseAndValidate(anyString())).thenThrow(new IllegalArgumentException("bad format"));
