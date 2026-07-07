@@ -9,7 +9,6 @@ import swp391.carwash.dto.response.Loyaty.LoyaltyPolicyResponse;
 import swp391.carwash.dto.response.vehicles.LoyaltyTierResponse;
 import swp391.carwash.entity.LoyaltyAccount;
 import swp391.carwash.entity.LoyaltyPolicy;
-import swp391.carwash.entity.LoyaltyTransaction;
 import swp391.carwash.entity.MembershipTier;
 import swp391.carwash.enums.RecordStatus;
 import swp391.carwash.repository.LoyaltyAccountRepository;

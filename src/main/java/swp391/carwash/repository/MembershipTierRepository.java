@@ -10,7 +10,6 @@ import swp391.carwash.enums.RecordStatus;
 @Repository
 public interface MembershipTierRepository extends JpaRepository<MembershipTier, Integer> {
 
-    Optional<MembershipTier> findFirstByOrderByMinPointsAsc();
 
     Optional<MembershipTier> findFirstByGarageIdAndStatusOrderByMinPointsAsc(
             Integer garageId,
@@ -34,21 +33,22 @@ public interface MembershipTierRepository extends JpaRepository<MembershipTier, 
             RecordStatus status
     );
 
-    boolean existsByGarageIdAndMinPointsAndIdNot(
+    boolean existsByGarageIdAndTierNameIgnoreCaseAndStatusNotAndIdNot(
             Integer garageId,
             String tierName,
-            Integer tierId,
-            RecordStatus status
+            RecordStatus status,
+            Integer id
     );
 
-    boolean existsByGarageIdAndMinPoints(
-            Integer garageId,
-            Integer minPoints
-    );
-
-    boolean existsByGarageIdAndMinPointsAndIdNot(
+    boolean existsByGarageIdAndMinPointsAndStatusNotAndIdNot(
             Integer garageId,
             Integer minPoints,
-            Integer tierId
+            RecordStatus status,
+            Integer id
+    );
+    Optional<MembershipTier> findFirstByGarageIdAndStatusAndMinPointsLessThanOrderByMinPointsDesc(
+            Integer garageId,
+            RecordStatus status,
+            Integer minPoints
     );
 }

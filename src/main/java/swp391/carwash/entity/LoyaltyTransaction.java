@@ -56,4 +56,11 @@ public class LoyaltyTransaction {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    @Column(name = "expired", nullable = false)
+    @Builder.Default
+    private Boolean expired = false;
+
+    @Column(name = "remaining_points", nullable = false)
+    private Integer remainingPoints;
 }

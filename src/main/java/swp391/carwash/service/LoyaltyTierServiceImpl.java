@@ -143,14 +143,26 @@ public class LoyaltyTierServiceImpl implements LoyaltyTierService{
     private void validateUpdate(LoyaltyTierRequest request,
                                 MembershipTier tier) {
 
-        if (membershipTierRepository
-                .existsByGarageIdAndMinPointsAndIdNot(
-                        tier.getGarage().getId(),
-                        request.getTierName(),
-                        tier.getId(),
-                        RecordStatus.DELETED)) {
+        Integer garageId = tier.getGarage().getId();
 
-            throw new RuntimeException("Tier name already exists.");
+        if (membershipTierRepository
+                .existsByGarageIdAndTierNameIgnoreCaseAndStatusNotAndIdNot(
+                        garageId,
+                        request.getTierName(),
+                        RecordStatus.DELETED,
+                        tier.getId())) {
+
+            throw new RuntimeException("Tên hạng thành viên đã tồn tại.");
+        }
+
+        if (membershipTierRepository
+                .existsByGarageIdAndMinPointsAndStatusNotAndIdNot(
+                        garageId,
+                        request.getMinPoints(),
+                        RecordStatus.DELETED,
+                        tier.getId())) {
+
+            throw new RuntimeException("Mức điểm tối thiểu đã tồn tại.");
         }
 
         validatePoint(request);

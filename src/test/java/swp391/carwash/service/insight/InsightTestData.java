@@ -135,7 +135,12 @@ public final class InsightTestData {
                 .build();
     }
 
-    public static LoyaltyTransaction earnTransaction(int id, int customerId, int points, OffsetDateTime createdAt) {
+    public static LoyaltyTransaction earnTransaction(
+            int id,
+            int customerId,
+            int points,
+            OffsetDateTime createdAt) {
+
         LoyaltyAccount account = LoyaltyAccount.builder()
                 .id(100 + customerId)
                 .user(customer(customerId))
@@ -143,10 +148,13 @@ public final class InsightTestData {
                 .totalPoints(points)
                 .availablePoints(points)
                 .build();
+
         return LoyaltyTransaction.builder()
                 .id(id)
                 .account(account)
                 .points(points)
+                .remainingPoints(points)
+                .expired(false)
                 .transactionType(TransactionType.EARN)
                 .earnedAt(createdAt)
                 .createdAt(createdAt)
