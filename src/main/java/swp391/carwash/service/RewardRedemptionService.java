@@ -42,13 +42,13 @@ public class RewardRedemptionService {
         if (reward.getStock() <= 0) {
             throw new RuntimeException("Phần thưởng đã hết hàng");
         }
-        if (account.getTotalPoints() < reward.getPointsRequired()) {
+        if (account.getAvailablePoints() < reward.getPointsRequired()) {
             throw new RuntimeException("Bạn không đủ điểm để đổi quà này");
         }
 
         // 5. CẬP NHẬT DỮ LIỆU
         // Trừ điểm
-        account.setTotalPoints(account.getTotalPoints() - reward.getPointsRequired());
+        account.setAvailablePoints(account.getAvailablePoints() - reward.getPointsRequired());
         loyaltyAccountRepository.save(account);
 
         // Trừ kho

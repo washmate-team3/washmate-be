@@ -31,18 +31,7 @@ import swp391.carwash.enums.BookingStatus;
 import swp391.carwash.enums.InvoiceStatus;
 import swp391.carwash.enums.PaymentMethod;
 import swp391.carwash.enums.PaymentStatus;
-import swp391.carwash.repository.AppUserRepository;
-import swp391.carwash.repository.BookingRepository;
-import swp391.carwash.repository.BookingSlotRepository;
-import swp391.carwash.repository.GarageRepository;
-import swp391.carwash.repository.InvoiceRepository;
-import swp391.carwash.repository.NotificationRepository;
-import swp391.carwash.repository.PaymentRepository;
-import swp391.carwash.repository.PaymentTransactionRepository;
-import swp391.carwash.repository.PromotionRepository;
-import swp391.carwash.repository.PromotionUsageRepository;
-import swp391.carwash.repository.ServicePackageRepository;
-import swp391.carwash.repository.VehicleRepository;
+import swp391.carwash.repository.*;
 import swp391.carwash.security.AppUserDetails;
 
 @ExtendWith(MockitoExtension.class)
@@ -72,8 +61,6 @@ class OwnershipAuthorizationServiceSecurityTest {
     @Mock
     private NotificationRepository notificationRepository;
     @Mock
-    private PromotionUsageRepository promotionUsageRepository;
-    @Mock
     private PaymentSettlementService paymentSettlementService;
     @Mock
     private AppUserDetails principal;
@@ -82,7 +69,8 @@ class OwnershipAuthorizationServiceSecurityTest {
     private PaymentService paymentService;
     private InvoiceService invoiceService;
 
-    @BeforeEach
+    @Mock
+    private PromotionUsageRepository promotionUsageRepository;    @BeforeEach
     void setUp() {
         bookingService = new BookingService(
                 appUserRepository,

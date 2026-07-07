@@ -48,7 +48,7 @@ public class LoyaltyService {
         LoyaltyAccount account = getOrCreateAccount(booking,policy);
         updateAccount(account, point);
         saveEarnTransaction(account, booking, point);
-        evaluateUpgrade(account);
+
     }
 
     private void evaluateUpgrade(LoyaltyAccount account) {

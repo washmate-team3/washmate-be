@@ -16,11 +16,15 @@ import swp391.carwash.service.Loyalty.Support.QuarterPeriod;
 
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.List;
 
-@RequiredArgsConstructor
+
 @Service
+@RequiredArgsConstructor
 public class LoyaltyTierEvaluationServiceImpl implements LoyaltyTierEvaluationService {
+
+    private static final String LOYALTY_UPDATE = "LOYALTY_UPDATE";
+    private static final String IN_APP = "IN_APP";
+    private static final String PENDING = "PENDING";
 
     private final LoyaltyAccountRepository loyaltyAccountRepository;
     private final MembershipTierRepository membershipTierRepository;
@@ -52,7 +56,20 @@ public class LoyaltyTierEvaluationServiceImpl implements LoyaltyTierEvaluationSe
     }
 
     private void evaluate(LoyaltyAccount account, QuarterPeriod period) {
-        if (shouldMaintain(account, period)) {
+
+        int earnedPoint = getEarnedPoint(account, period);
+
+        MembershipTier upgradeTier = findUpgradeTier(
+                account,
+                earnedPoint
+        );
+
+        if (isHigherTier(upgradeTier, account.getTier())) {
+            upgrade(account, upgradeTier);
+            return;
+        }
+
+        if (earnedPoint >= account.getTier().getMaintainPoints()) {
             return;
         }
 
@@ -64,7 +81,6 @@ public class LoyaltyTierEvaluationServiceImpl implements LoyaltyTierEvaluationSe
 
         downgrade(account, lowerTier);
     }
-
     private boolean shouldMaintain(LoyaltyAccount account, QuarterPeriod period) {
         Integer earnedPoint = loyaltyTransactionRepository.sumEarnPoint(
                 account.getId(),
@@ -85,32 +101,24 @@ public class LoyaltyTierEvaluationServiceImpl implements LoyaltyTierEvaluationSe
                 .orElse(null);
     }
 
-    private void downgrade(LoyaltyAccount account, MembershipTier newTier) {
+    private void downgrade(
+            LoyaltyAccount account,
+            MembershipTier newTier) {
+
         MembershipTier oldTier = account.getTier();
 
         account.setTier(newTier);
         account.setUpdatedAt(OffsetDateTime.now());
 
         loyaltyAccountRepository.save(account);
-        saveHistory(account, oldTier, newTier);
-    }
 
-    private void saveHistory(
-            LoyaltyAccount account,
-            MembershipTier oldTier,
-            MembershipTier newTier) {
-
-        LoyaltyTierHistory history = LoyaltyTierHistory.builder()
-                .account(account)
-                .garage(account.getGarage())
-                .oldTier(oldTier)
-                .newTier(newTier)
-                .changeType(TierChangeType.DOWNGRADE)
-                .changeReason("Không đủ điểm duy trì hạng sau kỳ đánh giá")
-                .createdAt(OffsetDateTime.now())
-                .build();
-
-        loyaltyTierHistoryRepository.save(history);
+        saveHistory(
+                account,
+                oldTier,
+                newTier,
+                TierChangeType.DOWNGRADE,
+                "Không đủ điểm duy trì hạng sau kỳ đánh giá"
+        );
     }
 
     private void processMaintainWarning(LoyaltyAccount account, QuarterPeriod period) {
@@ -128,7 +136,7 @@ public class LoyaltyTierEvaluationServiceImpl implements LoyaltyTierEvaluationSe
     private boolean alreadyWarned(LoyaltyAccount account, OffsetDateTime warningStart) {
         return notificationRepository.existsByUserIdAndTypeAndCreatedAtAfter(
                 account.getUser().getId(),
-                "LOYALTY_UPDATE",
+                LOYALTY_UPDATE,
                 warningStart
         );
     }
@@ -147,16 +155,16 @@ public class LoyaltyTierEvaluationServiceImpl implements LoyaltyTierEvaluationSe
         int missingPoints = account.getTier().getMaintainPoints() - earnedPoint;
 
         Notification notification = Notification.builder()
-                .userId(account.getId())
+                .userId(account.getUser().getId())
                 .title("Cảnh báo duy trì hạng thành viên")
                 .content("Bạn còn thiếu "
                         + missingPoints
                         + " điểm để duy trì hạng "
                         + account.getTier().getTierName()
                         + ". Vui lòng tích đủ điểm trước kỳ đánh giá.")
-                .type("LOYALTY_UPDATE")
-                .channel("IN_APP")
-                .status("PENDING")
+                .type(LOYALTY_UPDATE)
+                .channel(IN_APP)
+                .status(PENDING)
                 .isRead(false)
                 .createdAt(OffsetDateTime.now())
                 .build();
@@ -174,5 +182,72 @@ public class LoyaltyTierEvaluationServiceImpl implements LoyaltyTierEvaluationSe
                 || (month == 6 && day >= 16)
                 || (month == 9 && day >= 16)
                 || (month == 12 && day >= 17);
+    }
+    private int getEarnedPoint(
+            LoyaltyAccount account,
+            QuarterPeriod period) {
+
+        return loyaltyTransactionRepository.sumEarnPoint(
+                account.getId(),
+                TransactionType.EARN,
+                period.start(),
+                period.end()
+        );
+    }
+    private MembershipTier findUpgradeTier(
+            LoyaltyAccount account,
+            int earnedPoint) {
+
+        return membershipTierRepository
+                .findFirstByGarageIdAndStatusAndMinPointsLessThanEqualOrderByMinPointsDesc(
+                        account.getGarage().getId(),
+                        RecordStatus.ACTIVE,
+                        earnedPoint)
+                .orElse(account.getTier());
+    }
+    private void upgrade(
+            LoyaltyAccount account,
+            MembershipTier newTier) {
+
+        MembershipTier oldTier = account.getTier();
+
+        account.setTier(newTier);
+        account.setUpdatedAt(OffsetDateTime.now());
+
+        loyaltyAccountRepository.save(account);
+
+        saveHistory(
+                account,
+                oldTier,
+                newTier,
+                TierChangeType.UPGRADE,
+                "Đủ điểm nâng hạng trong kỳ đánh giá"
+        );
+    }
+
+    private void saveHistory(
+            LoyaltyAccount account,
+            MembershipTier oldTier,
+            MembershipTier newTier,
+            TierChangeType changeType,
+            String reason) {
+
+        LoyaltyTierHistory history = LoyaltyTierHistory.builder()
+                .account(account)
+                .garage(account.getGarage())
+                .oldTier(oldTier)
+                .newTier(newTier)
+                .changeType(changeType)
+                .changeReason(reason)
+                .createdAt(OffsetDateTime.now())
+                .build();
+
+        loyaltyTierHistoryRepository.save(history);
+    }
+    private boolean isHigherTier(
+            MembershipTier targetTier,
+            MembershipTier currentTier) {
+
+        return targetTier.getMinPoints() > currentTier.getMinPoints();
     }
 }

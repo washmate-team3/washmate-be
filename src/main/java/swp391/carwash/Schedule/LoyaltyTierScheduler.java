@@ -17,12 +17,11 @@ public class LoyaltyTierScheduler {
         loyaltyTierEvaluationService.evaluateQuarterlyTier();
 
     }
+
     @Scheduled(cron = "0 0 8 * * *")
     public void notifyMaintainWarning() {
 
         loyaltyTierEvaluationService.notifyMaintainWarning();
 
     }
-
-
 }
