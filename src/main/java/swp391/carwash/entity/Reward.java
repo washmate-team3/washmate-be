@@ -17,9 +17,13 @@ public class Reward {
     @Column(name = "reward_id")
     private Integer rewardId;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "garage_id", nullable = false)
     private Garage garage;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promotion_id")
+    private Promotion promotion;
 
     @Column(nullable = false)
     private String name;
@@ -31,10 +35,8 @@ public class Reward {
     private Integer pointsRequired;
 
     @Column(nullable = false)
-    @Builder.Default
-    private Integer stock = 0;
+    private Integer stock;
 
-    @Column(name = "status") // nếu tên cột database khác tên biến
+    @Column(nullable = false)
     private String status;
-
 }

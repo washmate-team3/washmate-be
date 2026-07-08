@@ -1,5 +1,8 @@
 package swp391.carwash.dto.response.Reward;
 
+
+import swp391.carwash.entity.Reward;
+
 public record RewardResponse(
         Integer rewardId,
         Integer garageId,
@@ -7,5 +10,17 @@ public record RewardResponse(
         String description,
         Integer pointsRequired,
         Integer stock,
-        String status // ACTIVE, INACTIVE, OUT_OF_STOCK, DELETED
-) {}
+        String status
+) {
+    public static RewardResponse from(Reward reward) {
+        return new RewardResponse(
+                reward.getRewardId(),
+                reward.getGarage().getId(),
+                reward.getName(),
+                reward.getDescription(),
+                reward.getPointsRequired(),
+                reward.getStock(),
+                reward.getStatus()
+        );
+    }
+}

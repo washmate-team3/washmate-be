@@ -47,4 +47,8 @@ public class RewardRedemption {
 
     @Column(name = "completed_at")
     private ZonedDateTime completedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "promotion_id")
+    private Promotion promotion;
 }

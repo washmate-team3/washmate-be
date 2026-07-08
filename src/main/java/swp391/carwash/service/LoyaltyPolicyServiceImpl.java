@@ -38,11 +38,11 @@ public class LoyaltyPolicyServiceImpl implements LoyaltyPolicyService {
         loyaltyPolicyRepository
                 .findByGarageIdAndStatus(garageId, RecordStatus.ACTIVE)
                 .ifPresent(policy -> {
-                    throw new RuntimeException("Loyalty policy already exists.");
+                    throw new RuntimeException("Chính sách khách hàng thân thiết đã tồn tại.");
                 });
 
         Garage garage = garageRepository.findById(garageId)
-                .orElseThrow(() -> new RuntimeException("Garage not found."));
+                .orElseThrow(() -> new RuntimeException("không tìm thấy garage này."));
 
         LoyaltyPolicy policy = LoyaltyPolicy.builder()
                 .garage(garage)
@@ -89,7 +89,7 @@ public class LoyaltyPolicyServiceImpl implements LoyaltyPolicyService {
                         garageId,
                         RecordStatus.ACTIVE)
                 .orElseThrow(() ->
-                        new RuntimeException("Loyalty policy not found."));
+                        new RuntimeException("không tìm thấy chính sách khách hàng thân thiết."));
     }
     private LoyaltyPolicyResponse toResponse(LoyaltyPolicy policy) {
 

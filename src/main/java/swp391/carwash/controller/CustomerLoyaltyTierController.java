@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import swp391.carwash.dto.LoyaltyAccountResponse;
 import swp391.carwash.dto.LoyaltyTransactionResponse;
 import swp391.carwash.dto.request.Account.LoyaltyTierRequest;
+import swp391.carwash.dto.response.CustomerLoyaltySummaryResponse;
 import swp391.carwash.dto.response.Loyaty.LoyaltyPolicyResponse;
 import swp391.carwash.dto.response.vehicles.LoyaltyTierResponse;
 import swp391.carwash.security.AppUserDetails;
@@ -64,5 +65,19 @@ CustomerLoyaltyTierController {
 
         return ResponseEntity.ok(
                 customerLoyaltyService.getPolicy(garageId));
+    }
+    @GetMapping("/summary")
+    @PreAuthorize("hasRole('CUSTOMER')")
+    @Operation(summary = "Get my loyalty summary")
+    public ResponseEntity<CustomerLoyaltySummaryResponse> getSummary(
+            @RequestParam Integer garageId,
+            @AuthenticationPrincipal AppUserDetails principal) {
+
+        return ResponseEntity.ok(
+                customerLoyaltyService.getSummary(
+                        principal.getId(),
+                        garageId
+                )
+        );
     }
 }

@@ -28,15 +28,6 @@ public class AdminLoyaltyTierController {
         return ResponseEntity.ok(loyaltyTierService.getAllTiers(garageId));
     }
 
-    @GetMapping("/{id}")
-    @Operation(summary = "Get loyalty tier by id")
-    public ResponseEntity<LoyaltyTierResponse> getById(
-            @RequestParam Integer garageId,
-            @PathVariable Integer id) {
-
-        return ResponseEntity.ok(loyaltyTierService.getById(garageId, id));
-    }
-
     @PostMapping
     @Operation(summary = "Tạo mới một hạng thành viên")
     public ResponseEntity<LoyaltyTierResponse> createTier(

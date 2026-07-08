@@ -11,17 +11,21 @@ import java.util.Optional;
 
 @Repository
 public interface RewardRepository extends JpaRepository<Reward, Integer> {
-    // Tìm các phần thưởng thuộc 1 garage cụ thể và còn hàng (stock > 0), trạng thái ACTIVE
-    List<Reward> findByGarageIdAndStatusAndStockGreaterThan(Integer garageId, String status, Integer stock);
-    // Phục vụ admin/staff xem quà theo garage và lọc theo trạng thái (ACTIVE, OUT_OF_STOCK, INACTIVE)
-    Page<Reward> findByGarageIdAndStatus(Integer garageId, String status, Pageable pageable);
 
-    // Phục vụ xem toàn bộ quà của garage ngoại trừ những quà đã bị xóa mềm (DELETED)
-    Page<Reward> findByGarageIdAndStatusNot(Integer garageId, String status, Pageable pageable);
+    Optional<Reward> findByRewardIdAndGarageId(
+            Integer rewardId,
+            Integer garageId
+    );
 
-    Optional<Reward> findByRewardIdAndGarageId(Integer rewardId, Integer garageId);
+    Page<Reward> findByGarageIdAndPromotionIsNotNullAndStatus(
+            Integer garageId,
+            String status,
+            Pageable pageable
+    );
 
-    Page<Reward> findByGarageId(Integer garageId, Pageable pageable);
-
-
+    Page<Reward> findByGarageIdAndPromotionIsNotNullAndStatusNot(
+            Integer garageId,
+            String status,
+            Pageable pageable
+    );
 }

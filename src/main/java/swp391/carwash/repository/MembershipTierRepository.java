@@ -51,4 +51,9 @@ public interface MembershipTierRepository extends JpaRepository<MembershipTier, 
             RecordStatus status,
             Integer minPoints
     );
+    Optional<MembershipTier> findFirstByGarageIdAndStatusAndMinPointsGreaterThanOrderByMinPointsAsc(
+            Integer garageId,
+            RecordStatus status,
+            Integer minPoints
+    );
 }

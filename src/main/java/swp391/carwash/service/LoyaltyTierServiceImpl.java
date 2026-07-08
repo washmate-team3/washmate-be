@@ -5,6 +5,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.carwash.dto.request.Account.LoyaltyTierRequest;
 import swp391.carwash.dto.response.vehicles.LoyaltyTierResponse;
+import swp391.carwash.entity.Garage;
 import swp391.carwash.entity.MembershipTier;
 import swp391.carwash.enums.RecordStatus;
 import swp391.carwash.repository.GarageRepository;
@@ -39,13 +40,15 @@ public class LoyaltyTierServiceImpl implements LoyaltyTierService{
 
     @Override
     @Transactional
-    public LoyaltyTierResponse createTier(Integer garageId,
-                                          LoyaltyTierRequest request) {
+    public LoyaltyTierResponse createTier(Integer garageId, LoyaltyTierRequest request) {
 
         validateCreate(garageId, request);
 
+        Garage garage = garageRepository.findById(garageId)
+                .orElseThrow(() -> new RuntimeException("Garage not found."));
+
         MembershipTier tier = MembershipTier.builder()
-                .id(garageId)
+                .garage(garage)
                 .tierName(request.getTierName().trim())
                 .minPoints(request.getMinPoints())
                 .maintainPoints(request.getMaintainPoints())
@@ -66,7 +69,7 @@ public class LoyaltyTierServiceImpl implements LoyaltyTierService{
 
         MembershipTier tier = getTier(tierId);
 
-        if (!tier.getId().equals(garageId)) {
+        if (!tier.getGarage().getId().equals(garageId)) {
             throw new RuntimeException("Tier does not belong to this garage.");
         }
 
@@ -88,7 +91,7 @@ public class LoyaltyTierServiceImpl implements LoyaltyTierService{
 
         MembershipTier tier = getTier(tierId);
 
-        if (!tier.getId().equals(garageId)) {
+        if (!tier.getGarage().getId().equals(garageId)) {
             throw new RuntimeException("Tier does not belong to this garage.");
         }
 
@@ -137,7 +140,6 @@ public class LoyaltyTierServiceImpl implements LoyaltyTierService{
 
             throw new RuntimeException("Tier name already exists.");
         }
-
         validatePoint(request);
     }
     private void validateUpdate(LoyaltyTierRequest request,
