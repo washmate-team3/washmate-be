@@ -57,19 +57,7 @@ public class LoyaltyTierEvaluationServiceImpl implements LoyaltyTierEvaluationSe
 
     private void evaluate(LoyaltyAccount account, QuarterPeriod period) {
 
-        int earnedPoint = getEarnedPoint(account, period);
-
-        MembershipTier upgradeTier = findUpgradeTier(
-                account,
-                earnedPoint
-        );
-
-        if (isHigherTier(upgradeTier, account.getTier())) {
-            upgrade(account, upgradeTier);
-            return;
-        }
-
-        if (earnedPoint >= account.getTier().getMaintainPoints()) {
+        if (shouldMaintain(account, period)) {
             return;
         }
 
@@ -183,48 +171,6 @@ public class LoyaltyTierEvaluationServiceImpl implements LoyaltyTierEvaluationSe
                 || (month == 9 && day >= 16)
                 || (month == 12 && day >= 17);
     }
-    private int getEarnedPoint(
-            LoyaltyAccount account,
-            QuarterPeriod period) {
-
-        return loyaltyTransactionRepository.sumEarnPoint(
-                account.getId(),
-                TransactionType.EARN,
-                period.start(),
-                period.end()
-        );
-    }
-    private MembershipTier findUpgradeTier(
-            LoyaltyAccount account,
-            int earnedPoint) {
-
-        return membershipTierRepository
-                .findFirstByGarageIdAndStatusAndMinPointsLessThanEqualOrderByMinPointsDesc(
-                        account.getGarage().getId(),
-                        RecordStatus.ACTIVE,
-                        earnedPoint)
-                .orElse(account.getTier());
-    }
-    private void upgrade(
-            LoyaltyAccount account,
-            MembershipTier newTier) {
-
-        MembershipTier oldTier = account.getTier();
-
-        account.setTier(newTier);
-        account.setUpdatedAt(OffsetDateTime.now());
-
-        loyaltyAccountRepository.save(account);
-
-        saveHistory(
-                account,
-                oldTier,
-                newTier,
-                TierChangeType.UPGRADE,
-                "Đủ điểm nâng hạng trong kỳ đánh giá"
-        );
-    }
-
     private void saveHistory(
             LoyaltyAccount account,
             MembershipTier oldTier,
@@ -243,11 +189,5 @@ public class LoyaltyTierEvaluationServiceImpl implements LoyaltyTierEvaluationSe
                 .build();
 
         loyaltyTierHistoryRepository.save(history);
-    }
-    private boolean isHigherTier(
-            MembershipTier targetTier,
-            MembershipTier currentTier) {
-
-        return targetTier.getMinPoints() > currentTier.getMinPoints();
     }
 }
