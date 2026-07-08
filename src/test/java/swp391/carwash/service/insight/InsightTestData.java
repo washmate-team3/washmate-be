@@ -153,7 +153,6 @@ public final class InsightTestData {
                 .id(id)
                 .account(account)
                 .points(points)
-                .remainingPoints(points)
                 .expired(false)
                 .transactionType(TransactionType.EARN)
                 .earnedAt(createdAt)
