@@ -70,6 +70,10 @@ class BookingServiceTest {
     @Mock
     private PromotionUsageRepository promotionUsageRepository;
 
+    @Mock
+    private LoyaltyAccountRepository loyaltyAccountRepository;
+
+
     @BeforeEach
     void setUp() {
         bookingService = new BookingService(
@@ -79,6 +83,7 @@ class BookingServiceTest {
                 garageRepository,
                 invoiceRepository,
                 paymentRepository,
+                loyaltyAccountRepository,
                 paymentTransactionRepository,
                 servicePackageRepository,
                 vehicleRepository,

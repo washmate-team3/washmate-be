@@ -64,6 +64,8 @@ class OwnershipAuthorizationServiceSecurityTest {
     private PaymentSettlementService paymentSettlementService;
     @Mock
     private AppUserDetails principal;
+    @Mock
+    private LoyaltyAccountRepository loyaltyAccountRepository;
 
     private BookingService bookingService;
     private PaymentService paymentService;
@@ -79,6 +81,7 @@ class OwnershipAuthorizationServiceSecurityTest {
                 garageRepository,
                 invoiceRepository,
                 paymentRepository,
+                loyaltyAccountRepository,
                 paymentTransactionRepository,
                 servicePackageRepository,
                 vehicleRepository,

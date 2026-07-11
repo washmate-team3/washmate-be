@@ -1,6 +1,7 @@
 package swp391.carwash.service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -15,10 +16,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import swp391.carwash.common.exception.ApiException;
-import swp391.carwash.dto.BookingCreateRequest;
-import swp391.carwash.dto.BookingRejectRequest;
-import swp391.carwash.dto.BookingResponse;
-import swp391.carwash.dto.BookingUpdateRequest;
+import swp391.carwash.dto.*;
 import swp391.carwash.entity.*;
 import swp391.carwash.enums.*;
 import swp391.carwash.repository.*;
@@ -39,6 +37,7 @@ public class BookingService {
     private final GarageRepository garageRepository;
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
+    private final LoyaltyAccountRepository loyaltyAccountRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final ServicePackageRepository servicePackageRepository;
     private final VehicleRepository vehicleRepository;
@@ -72,11 +71,24 @@ public class BookingService {
 
         BigDecimal totalAmount = service.getPrice();
 
-        BigDecimal discountAmount = calculateDiscount(
+        BigDecimal promotionDiscount = calculateDiscount(
                 customer.getId(),
                 garage,
                 service,
-                request.promotionId());
+                request.promotionId()
+        );
+
+        BigDecimal tierDiscount = calculateTierDiscount(
+                customer.getId(),
+                garage.getId(),
+                totalAmount
+        );
+
+        BigDecimal discountAmount = promotionDiscount.add(tierDiscount);
+
+        if (discountAmount.compareTo(totalAmount) > 0) {
+            discountAmount = totalAmount;
+        }
 
         BigDecimal finalAmount = totalAmount.subtract(discountAmount);
 
@@ -643,5 +655,38 @@ public class BookingService {
 
         return discount;
     }
+    private BigDecimal calculateTierDiscount(
+            Integer userId,
+            Integer garageId,
+            BigDecimal totalAmount) {
 
+        LoyaltyAccount account = loyaltyAccountRepository
+                .findByUserIdAndGarageId(userId, garageId)
+                .orElse(null);
+
+        if (account == null) {
+            return BigDecimal.ZERO;
+        }
+
+        MembershipTier tier = account.getTier();
+
+        if (tier == null) {
+            return BigDecimal.ZERO;
+        }
+
+        BigDecimal discountPercentage = tier.getDiscountPercentage();
+
+        if (discountPercentage == null
+                || discountPercentage.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+
+        return totalAmount
+                .multiply(discountPercentage)
+                .divide(
+                        BigDecimal.valueOf(100),
+                        2,
+                        RoundingMode.HALF_UP
+                );
+    }
 }
