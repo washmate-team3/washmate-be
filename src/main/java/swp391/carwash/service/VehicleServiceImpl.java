@@ -118,7 +118,7 @@ public class VehicleServiceImpl implements VehicleService{
                 .orElseThrow(() -> new RuntimeException("Không tìm thấy người dùng với email: " + email));
 
         // 2. Tìm danh sách xe theo ID của User đó từ Repository
-        List<Vehicle> vehicles = vehicleRepository.findVehicleByUserId(user.getId());
+        List<Vehicle> vehicles = vehicleRepository.findByUser_IdAndDeletedAtIsNull(user.getId());
 
         // 3. Chuyển đổi từ List<Vehicle> sang List<VehicleResponse> bằng Stream API
         return vehicles.stream()
