@@ -2,6 +2,8 @@ package swp391.carwash.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 
 @Entity
@@ -51,4 +53,12 @@ public class RewardRedemption {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "promotion_id")
     private Promotion promotion;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "booking_id")
+    private Booking booking;
+
+    @Column(name = "used_at")
+    private OffsetDateTime usedAt;
+
 }

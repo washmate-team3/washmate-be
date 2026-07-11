@@ -40,4 +40,7 @@ public interface PromotionRepository extends JpaRepository<Promotion, Integer> {
      * (Lấy hết tất cả các mã ACTIVE, INACTIVE, EXPIRED... mà không kèm điều kiện lọc thời gian)
      */
     List<Promotion> findByGarageId(Integer garageId);
+
+    boolean existsByPromoCode(String promoCode);
+
 }

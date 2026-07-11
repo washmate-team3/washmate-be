@@ -3,8 +3,10 @@ package swp391.carwash.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import swp391.carwash.dto.response.Reward.RewardRedemptionResponse;
 import swp391.carwash.dto.response.Reward.RewardResponse;
 import swp391.carwash.entity.*;
@@ -13,6 +15,7 @@ import swp391.carwash.repository.*;
 
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
+import java.util.UUID;
 
 
 @Service
@@ -29,6 +32,7 @@ public class CustomerPromotionRewardServiceImpl implements CustomerPromotionRewa
     private final RewardRedemptionRepository redemptionRepository;
     private final LoyaltyTransactionRepository loyaltyTransactionRepository;
     private final NotificationRepository notificationRepository;
+    private final PromotionRepository promotionRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -52,20 +56,38 @@ public class CustomerPromotionRewardServiceImpl implements CustomerPromotionRewa
             Integer garageId,
             Integer rewardId) {
 
+        // 1. Lấy reward có gắn Promotion mẫu
         Reward reward = getPromotionReward(garageId, rewardId);
 
+        // 2. Lấy tài khoản loyalty của customer
         LoyaltyAccount account = getAccount(userId, garageId);
 
+        // 3. Kiểm tra điểm, stock, trạng thái reward
         validateRedeem(account, reward);
 
+        // 4. Trừ availablePoints
         deductPoints(account, reward.getPointsRequired());
 
+        // 5. Trừ stock reward
         deductStock(reward);
 
-        RewardRedemption redemption = saveRedemption(account, reward);
+        // 6. Clone Promotion mẫu thành Promotion riêng cho customer
+        Promotion issuedPromotion = issuePromotionForCustomer(
+                reward.getPromotion(),
+                garageId
+        );
 
+        // 7. Lưu redemption và liên kết Promotion vừa sinh
+        RewardRedemption redemption = saveRedemption(
+                account,
+                reward,
+                issuedPromotion
+        );
+
+        // 8. Ghi lịch sử trừ điểm
         saveRedeemTransaction(account, redemption);
 
+        // 9. Thông báo mã giảm giá cho customer
         createNotification(account, redemption);
 
         return RewardRedemptionResponse.fromEntity(redemption);
@@ -137,16 +159,23 @@ public class CustomerPromotionRewardServiceImpl implements CustomerPromotionRewa
 
     private RewardRedemption saveRedemption(
             LoyaltyAccount account,
-            Reward reward) {
+            Reward reward,
+            Promotion issuedPromotion) {
+
+        ZonedDateTime now = ZonedDateTime.now();
 
         RewardRedemption redemption = RewardRedemption.builder()
                 .loyaltyAccount(account)
                 .garage(reward.getGarage())
                 .reward(reward)
-                .promotion(reward.getPromotion())
+
+                // Lưu Promotion riêng vừa clone, không lưu Promotion mẫu
+                .promotion(issuedPromotion)
+
                 .pointsUsed(reward.getPointsRequired())
                 .status("COMPLETED")
-                .redeemedAt(ZonedDateTime.now())
+                .redeemedAt(now)
+                .completedAt(now)
                 .build();
 
         return redemptionRepository.save(redemption);
@@ -177,11 +206,13 @@ public class CustomerPromotionRewardServiceImpl implements CustomerPromotionRewa
             LoyaltyAccount account,
             RewardRedemption redemption) {
 
+        String promoCode = redemption.getPromotion().getPromoCode();
+
         Notification notification = Notification.builder()
                 .userId(account.getUser().getId())
                 .title("Đổi mã giảm giá thành công")
                 .content("Bạn đã đổi thành công mã giảm giá "
-                        + redemption.getPromotion().getPromoCode()
+                        + promoCode
                         + " với "
                         + redemption.getPointsUsed()
                         + " điểm.")
@@ -193,5 +224,64 @@ public class CustomerPromotionRewardServiceImpl implements CustomerPromotionRewa
                 .build();
 
         notificationRepository.save(notification);
+    }
+    private Promotion issuePromotionForCustomer(
+            Promotion template,
+            Integer garageId) {
+
+        if (template == null) {
+            throw badRequest("Reward này không chứa Promotion.");
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+
+        if (!ACTIVE.equals(template.getStatus())) {
+            throw badRequest("Promotion mẫu không còn hoạt động.");
+        }
+
+        if (template.getEndDate().isBefore(now)) {
+            throw badRequest("Promotion mẫu đã hết hạn.");
+        }
+
+        Promotion issuedPromotion = Promotion.builder()
+                .garageId(garageId)
+                .promoCode(generatePromoCode(garageId))
+                .discountValue(template.getDiscountValue())
+                .discountType(template.getDiscountType())
+                .maxDiscount(template.getMaxDiscount())
+                .minOrderValue(template.getMinOrderValue())
+
+                // Mã riêng chỉ được dùng 1 lần
+                .usageLimit(1)
+                .usedCount(0)
+
+                .startDate(now)
+                .endDate(template.getEndDate())
+                .status(ACTIVE)
+                .build();
+
+        return promotionRepository.save(issuedPromotion);
+    }private String generatePromoCode(Integer garageId) {
+
+        String promoCode;
+
+        do {
+            String randomPart = UUID.randomUUID()
+                    .toString()
+                    .replace("-", "")
+                    .substring(0, 6)
+                    .toUpperCase();
+
+            promoCode = "WM-G" + garageId + "-" + randomPart;
+
+        } while (promotionRepository.existsByPromoCode(promoCode));
+
+        return promoCode;
+    }
+    private ResponseStatusException badRequest(String message) {
+        return new ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                message
+        );
     }
 }

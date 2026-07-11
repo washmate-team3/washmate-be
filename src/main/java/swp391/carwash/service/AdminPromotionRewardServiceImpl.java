@@ -1,12 +1,20 @@
 package swp391.carwash.service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.UUID;
+
 import lombok.RequiredArgsConstructor;
+import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.dto.request.PromotionReward.PromotionRewardCreateRequest;
 import swp391.carwash.dto.request.PromotionReward.PromotionRewardUpdateRequest;
 import swp391.carwash.dto.response.Reward.RewardRedemptionResponse;
@@ -32,19 +40,20 @@ public class AdminPromotionRewardServiceImpl implements AdminPromotionRewardServ
     private final RewardRedemptionRepository redemptionRepository;
     private final GarageRepository garageRepository;
     private final PromotionRepository promotionRepository;
-    private final LoyaltyAccountRepository loyaltyAccountRepository;
-    private final LoyaltyTransactionRepository loyaltyTransactionRepository;
 
     @Override
     @Transactional
     public RewardResponse create(PromotionRewardCreateRequest request) {
-        Garage garage = garageRepository.findById(request.getGarageId())
-                .orElseThrow(() -> new RuntimeException("Garage không tồn tại."));
 
-        Promotion promotion = getPromotionInGarage(
-                request.getPromotionId(),
-                request.getGarageId()
-        );
+        Garage garage = garageRepository.findById(request.getGarageId())
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "Garage không tồn tại."
+                ));
+
+        validateCreateRequest(request);
+
+        Promotion promotion = createPromotion(request);
 
         Reward reward = Reward.builder()
                 .garage(garage)
@@ -179,54 +188,74 @@ public class AdminPromotionRewardServiceImpl implements AdminPromotionRewardServ
 
         return reward;
     }
+    private Promotion createPromotion(
+            PromotionRewardCreateRequest request) {
 
-    private RewardRedemption getRedemption(Integer redemptionId) {
-        RewardRedemption redemption = redemptionRepository.findById(redemptionId)
-                .orElseThrow(() -> new RuntimeException("Redemption không tồn tại."));
-
-        if (redemption.getReward().getPromotion() == null) {
-            throw new RuntimeException("Redemption này không thuộc promotion reward.");
-        }
-
-        return redemption;
-    }
-
-    private void refundPoints(RewardRedemption redemption) {
-        LoyaltyAccount account = redemption.getLoyaltyAccount();
-
-        account.setAvailablePoints(
-                account.getAvailablePoints() + redemption.getPointsUsed()
-        );
-        account.setUpdatedAt(OffsetDateTime.now());
-
-        loyaltyAccountRepository.save(account);
-    }
-
-    private void restoreStock(Reward reward) {
-        reward.setStock(reward.getStock() + 1);
-
-        if (OUT_OF_STOCK.equals(reward.getStatus())) {
-            reward.setStatus(ACTIVE);
-        }
-
-        rewardRepository.save(reward);
-    }
-
-    private void saveRefundTransaction(RewardRedemption redemption) {
-        OffsetDateTime now = OffsetDateTime.now();
-
-        LoyaltyTransaction transaction = LoyaltyTransaction.builder()
-                .account(redemption.getLoyaltyAccount())
-                .redemptionId(redemption.getRedemptionId())
-                .points(redemption.getPointsUsed())
-                .transactionType(TransactionType.REFUND)
-                .description("Hoàn điểm do từ chối redemption: "
-                        + redemption.getReward().getName())
-                .earnedAt(now)
-                .createdAt(now)
-                .expired(false)
+        Promotion promotion = Promotion.builder()
+                .garageId(request.getGarageId())
+                .promoCode(generatePromoCode(request.getGarageId()))
+                .discountType(request.getDiscountType())
+                .discountValue(request.getDiscountValue())
+                .maxDiscount(request.getMaxDiscount())
+                .minOrderValue(request.getMinOrderValue())
+                .usageLimit(request.getUsageLimit())
+                .usedCount(0)
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
+                .status(ACTIVE)
                 .build();
 
-        loyaltyTransactionRepository.save(transaction);
+        return promotionRepository.save(promotion);
+    }
+    private void validateCreateRequest(
+            PromotionRewardCreateRequest request) {
+
+        if (request.getEndDate().isBefore(request.getStartDate())
+                || request.getEndDate().isEqual(request.getStartDate())) {
+
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Thời gian kết thúc phải sau thời gian bắt đầu."
+            );
+        }
+
+        if (!"PERCENTAGE".equals(request.getDiscountType())
+                && !"FIXED_AMOUNT".equals(request.getDiscountType())) {
+
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Loại giảm giá không hợp lệ."
+            );
+        }
+
+        if ("PERCENTAGE".equals(request.getDiscountType())
+                && request.getDiscountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
+
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "Phần trăm giảm giá không được vượt quá 100."
+            );
+        }
+    }
+    private String generatePromoCode(Integer garageId) {
+
+        String promoCode;
+
+        do {
+
+            String randomPart = UUID.randomUUID()
+                    .toString()
+                    .replace("-", "")
+                    .substring(0, 6)
+                    .toUpperCase();
+
+            promoCode = "WM-G"
+                    + garageId
+                    + "-"
+                    + randomPart;
+
+        } while (promotionRepository.existsByPromoCode(promoCode));
+
+        return promoCode;
     }
 }

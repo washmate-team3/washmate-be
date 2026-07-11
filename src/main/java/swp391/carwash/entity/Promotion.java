@@ -25,7 +25,7 @@ public class Promotion {
     private Integer garageId;
 
     @Column(name = "promo_code", nullable = false)
-    private String promoCode;
+    private String  promoCode;
 
     @Column(name = "discount_value", nullable = false)
     private BigDecimal discountValue;
