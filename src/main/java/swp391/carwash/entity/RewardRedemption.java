@@ -31,6 +31,7 @@ public class RewardRedemption {
     private Garage garage;
 
     // Liên kết tới bảng reward qua cột reward_id
+    @Enumerated(EnumType.STRING)
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reward_id", nullable = false)
     private Reward reward;
@@ -42,13 +43,13 @@ public class RewardRedemption {
     private String status; // PENDING, APPROVED, COMPLETED, REJECTED, CANCELLED
 
     @Column(name = "redeemed_at", nullable = false)
-    private ZonedDateTime redeemedAt;
+    private OffsetDateTime redeemedAt;
 
     @Column(name = "approved_at")
-    private ZonedDateTime approvedAt;
+    private OffsetDateTime approvedAt;
 
     @Column(name = "completed_at")
-    private ZonedDateTime completedAt;
+    private OffsetDateTime completedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "promotion_id")

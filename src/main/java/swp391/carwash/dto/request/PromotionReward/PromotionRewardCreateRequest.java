@@ -1,16 +1,20 @@
 package swp391.carwash.dto.request.PromotionReward;
 
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.*;
+
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
+
+import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
+import swp391.carwash.enums.DiscountType;
 
 @Getter
 @Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class PromotionRewardCreateRequest {
 
     @NotNull
@@ -30,23 +34,21 @@ public class PromotionRewardCreateRequest {
     private Integer stock;
 
     @NotBlank
-    private String discountType;
+    @Pattern(regexp = "PERCENTAGE|FIXED_AMOUNT")
+    private DiscountType discountType;
 
     @NotNull
-    @DecimalMin("0.0")
+    @DecimalMin(value = "0.0", inclusive = false)
     private BigDecimal discountValue;
 
+    @DecimalMin("0.0")
     private BigDecimal maxDiscount;
 
     @NotNull
     @DecimalMin("0.0")
     private BigDecimal minOrderValue;
 
-    private Integer usageLimit;
-
     @NotNull
-    private OffsetDateTime startDate;
-
-    @NotNull
-    private OffsetDateTime endDate;
+    @Min(1)
+    private Integer validDays;
 }

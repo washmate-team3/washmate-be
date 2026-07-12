@@ -2,6 +2,7 @@ package swp391.carwash.dto.response.Reward;
 
 import swp391.carwash.entity.RewardRedemption;
 
+import java.time.OffsetDateTime;
 import java.time.ZonedDateTime;
 
 
@@ -12,7 +13,7 @@ public record RewardRedemptionResponse(
         String rewardName, // Trả thêm tên quà để FE hiển thị luôn không cần gọi API tìm tên
         Integer pointsUsed,
         String status, // PENDING, APPROVED, COMPLETED, REJECTED
-        ZonedDateTime redeemedAt
+        OffsetDateTime redeemedAt
 ) {
     public static RewardRedemptionResponse fromEntity(RewardRedemption r) {
         return new RewardRedemptionResponse(

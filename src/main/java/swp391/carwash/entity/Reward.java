@@ -2,6 +2,10 @@ package swp391.carwash.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import swp391.carwash.enums.DiscountType;
+import swp391.carwash.enums.RewardStatus;
+
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "reward")
@@ -21,10 +25,6 @@ public class Reward {
     @JoinColumn(name = "garage_id", nullable = false)
     private Garage garage;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "promotion_id")
-    private Promotion promotion;
-
     @Column(nullable = false)
     private String name;
 
@@ -37,6 +37,28 @@ public class Reward {
     @Column(nullable = false)
     private Integer stock;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String status;
+    private RewardStatus status;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "discount_type", nullable = false)
+    private DiscountType discountType;
+
+    @Column(name = "discount_value", nullable = false, precision = 15, scale = 2)
+    private BigDecimal discountValue;
+
+    @Column(name = "max_discount", precision = 15, scale = 2)
+    private BigDecimal maxDiscount;
+
+    @Column(
+            name = "min_order_value",
+            nullable = false,
+            precision = 15,
+            scale = 2
+    )
+    private BigDecimal minOrderValue;
+
+    @Column(name = "valid_days", nullable = false)
+    private Integer validDays;
 }

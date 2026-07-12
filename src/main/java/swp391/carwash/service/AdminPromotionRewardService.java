@@ -9,11 +9,20 @@ import swp391.carwash.dto.response.Reward.RewardResponse;
 
 public interface AdminPromotionRewardService {
 
-    RewardResponse create(PromotionRewardCreateRequest request);
+    RewardResponse create(
+            PromotionRewardCreateRequest request
+    );
 
-    Page<RewardResponse> getAll(Integer garageId, String status, Pageable pageable);
+    Page<RewardResponse> getAll(
+            Integer garageId,
+            String status,
+            Pageable pageable
+    );
 
-    RewardResponse update(Integer rewardId, PromotionRewardUpdateRequest request);
+    RewardResponse update(
+            Integer rewardId,
+            PromotionRewardUpdateRequest request
+    );
 
     void delete(Integer rewardId);
 
@@ -22,6 +31,4 @@ public interface AdminPromotionRewardService {
             String status,
             Pageable pageable
     );
-
-
 }

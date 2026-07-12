@@ -27,24 +27,24 @@ public interface RewardRedemptionRepository extends JpaRepository<RewardRedempti
             @Param("toTime") ZonedDateTime toTime,
             @Param("garageId") Integer garageId);
 
-    default List<RewardRedemption> findForInsightPeriod(ZonedDateTime fromTime, ZonedDateTime toTime) {
-        return findForInsightPeriod(fromTime, toTime, null);
-    }
-
-
-    Page<RewardRedemption> findByLoyaltyAccountUserIdAndGarageIdOrderByRedeemedAtDesc(
+    Page<RewardRedemption>
+    findByLoyaltyAccountUserIdAndGarageIdOrderByRedeemedAtDesc(
             Integer userId,
             Integer garageId,
             Pageable pageable
     );
-    Page<RewardRedemption> findByGarageIdAndRewardPromotionIsNotNull(
+
+    Page<RewardRedemption>
+    findByGarageIdOrderByRedeemedAtDesc(
             Integer garageId,
             Pageable pageable
     );
 
-    Page<RewardRedemption> findByGarageIdAndRewardPromotionIsNotNullAndStatus(
+    Page<RewardRedemption>
+    findByGarageIdAndStatusOrderByRedeemedAtDesc(
             Integer garageId,
             String status,
             Pageable pageable
     );
+
 }

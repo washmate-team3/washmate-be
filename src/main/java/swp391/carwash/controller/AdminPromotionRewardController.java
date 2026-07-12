@@ -22,46 +22,45 @@ import swp391.carwash.service.AdminPromotionRewardService;
 @PreAuthorize("hasAnyRole('ADMIN','OWNER','MANAGER')")
 public class AdminPromotionRewardController {
 
-    private final AdminPromotionRewardService adminPromotionRewardService;
+    private final AdminPromotionRewardService service;
 
     @PostMapping
     public ResponseEntity<RewardResponse> create(
-            @Valid @RequestBody PromotionRewardCreateRequest request) {
-
+            @Valid @RequestBody PromotionRewardCreateRequest request
+    ) {
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(adminPromotionRewardService.create(request));
+                .body(service.create(request));
     }
 
     @GetMapping
     public ResponseEntity<Page<RewardResponse>> getAll(
             @RequestParam Integer garageId,
             @RequestParam(required = false) String status,
-            @PageableDefault(size = 10, direction = Sort.Direction.DESC) Pageable pageable) {
-
+            @PageableDefault(
+                    size = 10,
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable
+    ) {
         return ResponseEntity.ok(
-                adminPromotionRewardService.getAll(
-                        garageId,
-                        status,
-                        pageable
-                )
+                service.getAll(garageId, status, pageable)
         );
     }
 
     @PutMapping("/{rewardId}")
     public ResponseEntity<RewardResponse> update(
             @PathVariable Integer rewardId,
-            @Valid @RequestBody PromotionRewardUpdateRequest request) {
-
+            @Valid @RequestBody PromotionRewardUpdateRequest request
+    ) {
         return ResponseEntity.ok(
-                adminPromotionRewardService.update(rewardId, request)
+                service.update(rewardId, request)
         );
     }
 
     @DeleteMapping("/{rewardId}")
     public ResponseEntity<Void> delete(
-            @PathVariable Integer rewardId) {
-
-        adminPromotionRewardService.delete(rewardId);
+            @PathVariable Integer rewardId
+    ) {
+        service.delete(rewardId);
         return ResponseEntity.noContent().build();
     }
 
@@ -69,10 +68,13 @@ public class AdminPromotionRewardController {
     public ResponseEntity<Page<RewardRedemptionResponse>> getRedemptions(
             @RequestParam Integer garageId,
             @RequestParam(required = false) String status,
-            @PageableDefault(size = 10, direction = Sort.Direction.DESC) Pageable pageable) {
-
+            @PageableDefault(
+                    size = 10,
+                    direction = Sort.Direction.DESC
+            ) Pageable pageable
+    ) {
         return ResponseEntity.ok(
-                adminPromotionRewardService.getRedemptions(
+                service.getRedemptions(
                         garageId,
                         status,
                         pageable

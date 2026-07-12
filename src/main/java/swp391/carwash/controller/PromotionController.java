@@ -1,12 +1,9 @@
 package swp391.carwash.controller;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import swp391.carwash.entity.Promotion;
 import swp391.carwash.security.AppUserDetails;
 import swp391.carwash.service.PromotionService;
@@ -19,15 +16,26 @@ import java.util.List;
 public class PromotionController {
 
     private final PromotionService promotionService;
+
     @GetMapping("/AvailablePromotions")
+    @PreAuthorize("hasRole('CUSTOMER')")
     public List<Promotion> getAvailablePromotions(
             @RequestParam Integer garageId,
-            @AuthenticationPrincipal AppUserDetails principal) {
-        return promotionService.getAvailablePromotions(garageId,principal);
+            @AuthenticationPrincipal AppUserDetails principal
+    ) {
+        return promotionService.getAvailablePromotions(
+                garageId,
+                principal
+        );
     }
 
     @GetMapping("/manage/all")
-    public List<Promotion> getAllPromotionsByGarage(@RequestParam Integer garageId) {
-        return promotionService.getAllPromotionsByGarage(garageId);
+    @PreAuthorize("hasAnyRole('ADMIN','OWNER','MANAGER')")
+    public List<Promotion> getAllPromotionsByGarage(
+            @RequestParam Integer garageId
+    ) {
+        return promotionService.getAllPromotionsByGarage(
+                garageId
+        );
     }
 }

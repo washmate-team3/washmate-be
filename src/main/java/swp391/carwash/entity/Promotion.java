@@ -5,6 +5,9 @@ import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 import jakarta.persistence.*;
 import lombok.*;
+import swp391.carwash.enums.DiscountType;
+import swp391.carwash.enums.PromotionStatus;
+
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 
@@ -30,8 +33,9 @@ public class Promotion {
     @Column(name = "discount_value", nullable = false)
     private BigDecimal discountValue;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "discount_type", nullable = false)
-    private String discountType;
+    private DiscountType discountType;
 
     @Column(name = "max_discount")
     private BigDecimal maxDiscount;
@@ -51,6 +55,7 @@ public class Promotion {
     @Column(name = "end_date", nullable = false)
     private OffsetDateTime endDate;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
-    private String status;
+    private PromotionStatus status;
 }

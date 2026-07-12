@@ -1,14 +1,6 @@
 package swp391.carwash.service;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
-import java.time.OffsetDateTime;
-import java.time.ZonedDateTime;
-import java.time.format.DateTimeFormatter;
-import java.util.UUID;
-
 import lombok.RequiredArgsConstructor;
-import org.apache.commons.lang3.RandomStringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -19,53 +11,77 @@ import swp391.carwash.dto.request.PromotionReward.PromotionRewardCreateRequest;
 import swp391.carwash.dto.request.PromotionReward.PromotionRewardUpdateRequest;
 import swp391.carwash.dto.response.Reward.RewardRedemptionResponse;
 import swp391.carwash.dto.response.Reward.RewardResponse;
-import swp391.carwash.entity.*;
-import swp391.carwash.enums.TransactionType;
-import swp391.carwash.repository.*;
+import swp391.carwash.entity.Garage;
+import swp391.carwash.entity.Reward;
+import swp391.carwash.entity.RewardRedemption;
+import swp391.carwash.enums.DiscountType;
+import swp391.carwash.repository.GarageRepository;
+import swp391.carwash.repository.RewardRedemptionRepository;
+import swp391.carwash.repository.RewardRepository;
+import swp391.carwash.enums.RewardStatus;
+import java.math.BigDecimal;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
-public class AdminPromotionRewardServiceImpl implements AdminPromotionRewardService {
+public class AdminPromotionRewardServiceImpl
+        implements AdminPromotionRewardService {
 
-    private static final String ACTIVE = "ACTIVE";
-    private static final String DELETED = "DELETED";
-    private static final String OUT_OF_STOCK = "OUT_OF_STOCK";
+    private static final Set<RewardStatus> VALID_REWARD_STATUSES = Set.of(
+            RewardStatus.ACTIVE,
+            RewardStatus.INACTIVE,
+            RewardStatus.OUT_OF_STOCK,
+            RewardStatus.DELETED
+    );
 
-    private static final String PENDING = "PENDING";
-    private static final String APPROVED = "APPROVED";
-    private static final String COMPLETED = "COMPLETED";
-    private static final String REJECTED = "REJECTED";
+    private static final Set<String> VALID_REDEMPTION_STATUSES = Set.of(
+            "PENDING",
+            "APPROVED",
+            "COMPLETED",
+            "REJECTED",
+            "CANCELLED"
+    );
 
     private final RewardRepository rewardRepository;
     private final RewardRedemptionRepository redemptionRepository;
     private final GarageRepository garageRepository;
-    private final PromotionRepository promotionRepository;
 
     @Override
     @Transactional
-    public RewardResponse create(PromotionRewardCreateRequest request) {
+    public RewardResponse create(
+            PromotionRewardCreateRequest request
+    ) {
+        Garage garage = getGarage(request.getGarageId());
 
-        Garage garage = garageRepository.findById(request.getGarageId())
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.NOT_FOUND,
-                        "Garage không tồn tại."
-                ));
-
-        validateCreateRequest(request);
-
-        Promotion promotion = createPromotion(request);
+        validateRewardData(
+                request.getDiscountType(),
+                request.getDiscountValue(),
+                request.getMaxDiscount(),
+                request.getMinOrderValue(),
+                request.getValidDays()
+        );
 
         Reward reward = Reward.builder()
                 .garage(garage)
-                .promotion(promotion)
-                .name(request.getName())
+                .name(request.getName().trim())
                 .description(request.getDescription())
                 .pointsRequired(request.getPointsRequired())
                 .stock(request.getStock())
-                .status(request.getStock() == 0 ? OUT_OF_STOCK : ACTIVE)
+                .discountType(request.getDiscountType())
+                .discountValue(request.getDiscountValue())
+                .maxDiscount(request.getMaxDiscount())
+                .minOrderValue(request.getMinOrderValue())
+                .validDays(request.getValidDays())
+                .status(
+                        request.getStock() == 0
+                                ? RewardStatus.OUT_OF_STOCK
+                                : RewardStatus.ACTIVE
+                )
                 .build();
 
-        return RewardResponse.from(rewardRepository.save(reward));
+        return RewardResponse.from(
+                rewardRepository.save(reward)
+        );
     }
 
     @Override
@@ -73,19 +89,38 @@ public class AdminPromotionRewardServiceImpl implements AdminPromotionRewardServ
     public Page<RewardResponse> getAll(
             Integer garageId,
             String status,
-            Pageable pageable) {
+            Pageable pageable
+    ) {
+        getGarage(garageId);
 
-        Page<Reward> rewards = status == null
-                ? rewardRepository.findByGarageIdAndPromotionIsNotNullAndStatusNot(
-                garageId,
-                DELETED,
-                pageable
-        )
-                : rewardRepository.findByGarageIdAndPromotionIsNotNullAndStatus(
-                garageId,
-                status,
-                pageable
-        );
+        Page<Reward> rewards;
+
+        if (status == null || status.isBlank()) {
+            rewards = rewardRepository
+                    .findByGarageIdAndStatusNot(
+                            garageId,
+                            RewardStatus.DELETED,
+                            pageable
+                    );
+        } else {
+            RewardStatus rewardStatus;
+
+            try {
+                rewardStatus = RewardStatus.valueOf(
+                        normalize(status)
+                );
+            } catch (IllegalArgumentException e) {
+                throw badRequest("Trạng thái phần thưởng không hợp lệ.");
+            }
+
+            validateRewardStatus(rewardStatus);
+
+            rewards = rewardRepository.findByGarageIdAndStatus(
+                    garageId,
+                    rewardStatus,
+                    pageable
+            );
+        }
 
         return rewards.map(RewardResponse::from);
     }
@@ -94,52 +129,40 @@ public class AdminPromotionRewardServiceImpl implements AdminPromotionRewardServ
     @Transactional
     public RewardResponse update(
             Integer rewardId,
-            PromotionRewardUpdateRequest request) {
+            PromotionRewardUpdateRequest request
+    ) {
+        Reward reward = getRewardForUpdate(rewardId);
 
-        Reward reward = getPromotionReward(rewardId);
+        updateBasicFields(reward, request);
 
-        if (request.getPromotionId() != null) {
-            Promotion promotion = getPromotionInGarage(
-                    request.getPromotionId(),
-                    reward.getGarage().getId()
-            );
-            reward.setPromotion(promotion);
-        }
+        validateRewardData(
+                reward.getDiscountType(),
+                reward.getDiscountValue(),
+                reward.getMaxDiscount(),
+                reward.getMinOrderValue(),
+                reward.getValidDays()
+        );
 
-        if (request.getName() != null) {
-            reward.setName(request.getName());
-        }
+        updateStatus(reward, request.getStatus());
 
-        if (request.getDescription() != null) {
-            reward.setDescription(request.getDescription());
-        }
-
-        if (request.getPointsRequired() != null) {
-            reward.setPointsRequired(request.getPointsRequired());
-        }
-
-        if (request.getStock() != null) {
-            reward.setStock(request.getStock());
-
-            if (request.getStock() == 0) {
-                reward.setStatus(OUT_OF_STOCK);
-            } else if (OUT_OF_STOCK.equals(reward.getStatus())) {
-                reward.setStatus(ACTIVE);
-            }
-        }
-
-        if (request.getStatus() != null) {
-            reward.setStatus(request.getStatus());
-        }
-
-        return RewardResponse.from(rewardRepository.save(reward));
+        return RewardResponse.from(
+                rewardRepository.save(reward)
+        );
     }
 
     @Override
     @Transactional
     public void delete(Integer rewardId) {
-        Reward reward = getPromotionReward(rewardId);
-        reward.setStatus(DELETED);
+        Reward reward = rewardRepository.findById(rewardId)
+                .orElseThrow(() -> notFound(
+                        "Phần thưởng không tồn tại."
+                ));
+
+        if (reward.getStatus() == RewardStatus.DELETED) {
+            return;
+        }
+
+        reward.setStatus(RewardStatus.DELETED);
         rewardRepository.save(reward);
     }
 
@@ -148,114 +171,222 @@ public class AdminPromotionRewardServiceImpl implements AdminPromotionRewardServ
     public Page<RewardRedemptionResponse> getRedemptions(
             Integer garageId,
             String status,
-            Pageable pageable) {
+            Pageable pageable
+    ) {
+        getGarage(garageId);
 
-        Page<RewardRedemption> redemptions = status == null
-                ? redemptionRepository.findByGarageIdAndRewardPromotionIsNotNull(
-                garageId,
-                pageable
-        )
-                : redemptionRepository.findByGarageIdAndRewardPromotionIsNotNullAndStatus(
-                garageId,
-                status,
-                pageable
-        );
+        Page<RewardRedemption> result;
 
-        return redemptions.map(RewardRedemptionResponse::fromEntity);
-    }
+        if (status == null || status.isBlank()) {
+            result = redemptionRepository
+                    .findByGarageIdOrderByRedeemedAtDesc(
+                            garageId,
+                            pageable
+                    );
+        } else {
+            String normalizedStatus = normalize(status);
 
-    private Promotion getPromotionInGarage(
-            Integer promotionId,
-            Integer garageId) {
+            if (!VALID_REDEMPTION_STATUSES.contains(
+                    normalizedStatus
+            )) {
+                throw badRequest(
+                        "Trạng thái đổi thưởng không hợp lệ."
+                );
+            }
 
-        Promotion promotion = promotionRepository.findById(promotionId)
-                .orElseThrow(() -> new RuntimeException("Promotion không tồn tại."));
-
-        if (!promotion.getGarageId().equals(garageId)) {
-            throw new RuntimeException("Promotion không thuộc garage này.");
+            result = redemptionRepository
+                    .findByGarageIdAndStatusOrderByRedeemedAtDesc(
+                            garageId,
+                            normalizedStatus,
+                            pageable
+                    );
         }
 
-        return promotion;
+        return result.map(
+                RewardRedemptionResponse::fromEntity
+        );
     }
 
-    private Reward getPromotionReward(Integer rewardId) {
-        Reward reward = rewardRepository.findById(rewardId)
-                .orElseThrow(() -> new RuntimeException("Promotion reward không tồn tại."));
+    private void updateBasicFields(
+            Reward reward,
+            PromotionRewardUpdateRequest request
+    ) {
+        if (request.getName() != null) {
+            reward.setName(request.getName().trim());
+        }
 
-        if (reward.getPromotion() == null) {
-            throw new RuntimeException("Reward này không phải promotion reward.");
+        if (request.getDescription() != null) {
+            reward.setDescription(request.getDescription());
+        }
+
+        if (request.getPointsRequired() != null) {
+            reward.setPointsRequired(
+                    request.getPointsRequired()
+            );
+        }
+
+        if (request.getStock() != null) {
+            reward.setStock(request.getStock());
+        }
+
+        if (request.getDiscountType() != null) {
+            reward.setDiscountType(
+                    request.getDiscountType()
+            );
+        }
+
+        if (request.getDiscountValue() != null) {
+            reward.setDiscountValue(
+                    request.getDiscountValue()
+            );
+        }
+
+        if (request.getMaxDiscount() != null) {
+            reward.setMaxDiscount(
+                    request.getMaxDiscount()
+            );
+        }
+
+        if (request.getMinOrderValue() != null) {
+            reward.setMinOrderValue(
+                    request.getMinOrderValue()
+            );
+        }
+
+        if (request.getValidDays() != null) {
+            reward.setValidDays(
+                    request.getValidDays()
+            );
+        }
+    }
+
+    private void updateStatus(
+            Reward reward,
+            RewardStatus requestedStatus
+    ) {
+        if (requestedStatus != null) {
+
+            RewardStatus status = requestedStatus;
+
+            validateRewardStatus(status);
+
+            if (status == RewardStatus.DELETED) {
+                throw badRequest(
+                        "Hãy dùng API DELETE để xóa phần thưởng."
+                );
+            }
+
+            reward.setStatus(status);
+        }
+
+        if (reward.getStock() == 0) {
+            reward.setStatus(RewardStatus.OUT_OF_STOCK);
+        } else if (RewardStatus.OUT_OF_STOCK.equals(reward.getStatus())) {
+            reward.setStatus(RewardStatus.ACTIVE);
+        }
+    }
+
+    private void validateRewardData(
+            DiscountType discountType,
+            BigDecimal discountValue,
+            BigDecimal maxDiscount,
+            BigDecimal minOrderValue,
+            Integer validDays
+    ) {
+        if (discountType == null) {
+            throw badRequest("Loại giảm giá không hợp lệ.");
+        }
+
+        if (discountValue == null
+                || discountValue.compareTo(
+                BigDecimal.ZERO
+        ) <= 0) {
+            throw badRequest(
+                    "Giá trị giảm phải lớn hơn 0."
+            );
+        }
+
+        if (discountType == DiscountType.PERCENTAGE
+                && discountValue.compareTo(
+                BigDecimal.valueOf(100)
+        ) > 0) {
+            throw badRequest(
+                    "Phần trăm giảm không được vượt quá 100."
+            );
+        }
+
+        if (maxDiscount != null
+                && maxDiscount.compareTo(
+                BigDecimal.ZERO
+        ) < 0) {
+            throw badRequest(
+                    "Giảm tối đa không được âm."
+            );
+        }
+
+        if (minOrderValue == null
+                || minOrderValue.compareTo(
+                BigDecimal.ZERO
+        ) < 0) {
+            throw badRequest(
+                    "Giá trị đơn tối thiểu không được âm."
+            );
+        }
+
+        if (validDays == null || validDays <= 0) {
+            throw badRequest(
+                    "Số ngày hiệu lực phải lớn hơn 0."
+            );
+        }
+    }
+
+    private Garage getGarage(Integer garageId) {
+        return garageRepository.findById(garageId)
+                .orElseThrow(() -> notFound(
+                        "Garage không tồn tại."
+                ));
+    }
+
+    private Reward getRewardForUpdate(Integer rewardId) {
+        Reward reward = rewardRepository.findById(rewardId)
+                .orElseThrow(() -> notFound(
+                        "Phần thưởng không tồn tại."
+                ));
+
+        if (reward.getStatus() == RewardStatus.DELETED) {
+            throw badRequest(
+                    "Không thể cập nhật phần thưởng đã xóa."
+            );
         }
 
         return reward;
     }
-    private Promotion createPromotion(
-            PromotionRewardCreateRequest request) {
 
-        Promotion promotion = Promotion.builder()
-                .garageId(request.getGarageId())
-                .promoCode(generatePromoCode(request.getGarageId()))
-                .discountType(request.getDiscountType())
-                .discountValue(request.getDiscountValue())
-                .maxDiscount(request.getMaxDiscount())
-                .minOrderValue(request.getMinOrderValue())
-                .usageLimit(request.getUsageLimit())
-                .usedCount(0)
-                .startDate(request.getStartDate())
-                .endDate(request.getEndDate())
-                .status(ACTIVE)
-                .build();
-
-        return promotionRepository.save(promotion);
-    }
-    private void validateCreateRequest(
-            PromotionRewardCreateRequest request) {
-
-        if (request.getEndDate().isBefore(request.getStartDate())
-                || request.getEndDate().isEqual(request.getStartDate())) {
-
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "Thời gian kết thúc phải sau thời gian bắt đầu."
-            );
-        }
-
-        if (!"PERCENTAGE".equals(request.getDiscountType())
-                && !"FIXED_AMOUNT".equals(request.getDiscountType())) {
-
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "Loại giảm giá không hợp lệ."
-            );
-        }
-
-        if ("PERCENTAGE".equals(request.getDiscountType())
-                && request.getDiscountValue().compareTo(BigDecimal.valueOf(100)) > 0) {
-
-            throw new ApiException(
-                    HttpStatus.BAD_REQUEST,
-                    "Phần trăm giảm giá không được vượt quá 100."
+    private void validateRewardStatus(RewardStatus status) {
+        if (!VALID_REWARD_STATUSES.contains(status)) {
+            throw badRequest(
+                    "Trạng thái phần thưởng không hợp lệ."
             );
         }
     }
-    private String generatePromoCode(Integer garageId) {
 
-        String promoCode;
 
-        do {
+    private ApiException notFound(String message) {
+        return new ApiException(
+                HttpStatus.NOT_FOUND,
+                message
+        );
+    }
 
-            String randomPart = UUID.randomUUID()
-                    .toString()
-                    .replace("-", "")
-                    .substring(0, 6)
-                    .toUpperCase();
-
-            promoCode = "WM-G"
-                    + garageId
-                    + "-"
-                    + randomPart;
-
-        } while (promotionRepository.existsByPromoCode(promoCode));
-
-        return promoCode;
+    private ApiException badRequest(String message) {
+        return new ApiException(
+                HttpStatus.BAD_REQUEST,
+                message
+        );
+    }
+    private String normalize(String value) {
+        return value == null
+                ? null
+                : value.trim().toUpperCase();
     }
 }

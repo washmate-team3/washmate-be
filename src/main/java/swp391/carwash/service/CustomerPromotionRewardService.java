@@ -1,5 +1,4 @@
-package swp391.carwash.repository;
-
+package swp391.carwash.service;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;

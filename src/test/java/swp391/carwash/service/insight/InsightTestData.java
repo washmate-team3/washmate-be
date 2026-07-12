@@ -160,7 +160,7 @@ public final class InsightTestData {
                 .build();
     }
 
-    public static RewardRedemption redemption(int id, int customerId, int points, String status, ZonedDateTime redeemedAt) {
+    public static RewardRedemption redemption(int id, int customerId, int points, String status, OffsetDateTime redeemedAt) {
         LoyaltyAccount account = LoyaltyAccount.builder()
                 .id(200 + customerId)
                 .user(customer(customerId))

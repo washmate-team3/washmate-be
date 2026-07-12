@@ -6,23 +6,28 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
+import swp391.carwash.common.exception.ApiException;
 import swp391.carwash.dto.response.Reward.RewardRedemptionResponse;
 import swp391.carwash.dto.response.Reward.RewardResponse;
 import swp391.carwash.entity.*;
+import swp391.carwash.enums.PromotionStatus;
+import swp391.carwash.enums.RecordStatus;
+import swp391.carwash.enums.RewardStatus;
 import swp391.carwash.enums.TransactionType;
 import swp391.carwash.repository.*;
 
 import java.time.OffsetDateTime;
-import java.time.ZonedDateTime;
 import java.util.UUID;
-
 
 @Service
 @RequiredArgsConstructor
-public class CustomerPromotionRewardServiceImpl implements CustomerPromotionRewardService {
+public class CustomerPromotionRewardServiceImpl
+        implements CustomerPromotionRewardService {
 
     private static final String ACTIVE = "ACTIVE";
+    private static final String OUT_OF_STOCK = "OUT_OF_STOCK";
+    private static final String COMPLETED = "COMPLETED";
+
     private static final String PENDING = "PENDING";
     private static final String LOYALTY_UPDATE = "LOYALTY_UPDATE";
     private static final String IN_APP = "IN_APP";
@@ -30,20 +35,21 @@ public class CustomerPromotionRewardServiceImpl implements CustomerPromotionRewa
     private final RewardRepository rewardRepository;
     private final LoyaltyAccountRepository loyaltyAccountRepository;
     private final RewardRedemptionRepository redemptionRepository;
-    private final LoyaltyTransactionRepository loyaltyTransactionRepository;
-    private final NotificationRepository notificationRepository;
+    private final LoyaltyTransactionRepository transactionRepository;
     private final PromotionRepository promotionRepository;
+    private final NotificationRepository notificationRepository;
 
     @Override
     @Transactional(readOnly = true)
     public Page<RewardResponse> getRedeemablePromotions(
             Integer garageId,
-            Pageable pageable) {
-
+            Pageable pageable
+    ) {
         return rewardRepository
-                .findByGarageIdAndPromotionIsNotNullAndStatus(
+                .findByGarageIdAndStatusAndStockGreaterThan(
                         garageId,
                         ACTIVE,
+                        0,
                         pageable
                 )
                 .map(RewardResponse::from);
@@ -54,40 +60,40 @@ public class CustomerPromotionRewardServiceImpl implements CustomerPromotionRewa
     public RewardRedemptionResponse redeemPromotionReward(
             Integer userId,
             Integer garageId,
-            Integer rewardId) {
+            Integer rewardId
+    ) {
+        Reward reward = rewardRepository
+                .findByIdForUpdate(rewardId)
+                .orElseThrow(() -> notFound(
+                        "Phần thưởng không tồn tại."
+                ));
 
-        // 1. Lấy reward có gắn Promotion mẫu
-        Reward reward = getPromotionReward(garageId, rewardId);
+        validateGarage(reward, garageId);
 
-        // 2. Lấy tài khoản loyalty của customer
-        LoyaltyAccount account = getAccount(userId, garageId);
+        LoyaltyAccount account = loyaltyAccountRepository
+                .findForRedeem(
+                        userId,
+                        garageId,
+                        RecordStatus.ACTIVE
+                )
+                .orElseThrow(() -> notFound(
+                        "Tài khoản tích điểm không tồn tại."
+                ));
 
-        // 3. Kiểm tra điểm, stock, trạng thái reward
         validateRedeem(account, reward);
 
-        // 4. Trừ availablePoints
         deductPoints(account, reward.getPointsRequired());
-
-        // 5. Trừ stock reward
         deductStock(reward);
 
-        // 6. Clone Promotion mẫu thành Promotion riêng cho customer
-        Promotion issuedPromotion = issuePromotionForCustomer(
-                reward.getPromotion(),
-                garageId
-        );
+        Promotion promotion = createPersonalPromotion(reward);
 
-        // 7. Lưu redemption và liên kết Promotion vừa sinh
-        RewardRedemption redemption = saveRedemption(
+        RewardRedemption redemption = createRedemption(
                 account,
                 reward,
-                issuedPromotion
+                promotion
         );
 
-        // 8. Ghi lịch sử trừ điểm
-        saveRedeemTransaction(account, redemption);
-
-        // 9. Thông báo mã giảm giá cho customer
+        createTransaction(account, redemption);
         createNotification(account, redemption);
 
         return RewardRedemptionResponse.fromEntity(redemption);
@@ -98,8 +104,8 @@ public class CustomerPromotionRewardServiceImpl implements CustomerPromotionRewa
     public Page<RewardRedemptionResponse> getMyPromotionRedemptions(
             Integer userId,
             Integer garageId,
-            Pageable pageable) {
-
+            Pageable pageable
+    ) {
         return redemptionRepository
                 .findByLoyaltyAccountUserIdAndGarageIdOrderByRedeemedAtDesc(
                         userId,
@@ -109,177 +115,204 @@ public class CustomerPromotionRewardServiceImpl implements CustomerPromotionRewa
                 .map(RewardRedemptionResponse::fromEntity);
     }
 
-    private Reward getPromotionReward(Integer garageId, Integer rewardId) {
-        Reward reward = rewardRepository
-                .findByRewardIdAndGarageId(rewardId, garageId)
-                .orElseThrow(() -> new RuntimeException("Phần thưởng không tồn tại."));
-
-        if (reward.getPromotion() == null) {
-            throw new RuntimeException("Phần thưởng này không phải mã giảm giá.");
+    private void validateGarage(
+            Reward reward,
+            Integer garageId
+    ) {
+        if (!reward.getGarage().getId().equals(garageId)) {
+            throw badRequest(
+                    "Phần thưởng không thuộc garage này."
+            );
         }
-
-        return reward;
     }
 
-    private LoyaltyAccount getAccount(Integer userId, Integer garageId) {
-        return loyaltyAccountRepository
-                .findByUserIdAndGarageId(userId, garageId)
-                .orElseThrow(() -> new RuntimeException("Tài khoản tích điểm không tồn tại."));
-    }
-
-    private void validateRedeem(LoyaltyAccount account, Reward reward) {
+    private void validateRedeem(
+            LoyaltyAccount account,
+            Reward reward
+    ) {
         if (!ACTIVE.equals(reward.getStatus())) {
-            throw new RuntimeException("Mã giảm giá không còn hoạt động.");
+            throw badRequest(
+                    "Phần thưởng hiện không thể đổi."
+            );
         }
 
-        if (reward.getStock() <= 0) {
-            throw new RuntimeException("Mã giảm giá đã hết lượt đổi.");
+        if (reward.getStock() == null
+                || reward.getStock() <= 0) {
+            throw badRequest(
+                    "Phần thưởng đã hết lượt đổi."
+            );
         }
 
-        if (account.getAvailablePoints() < reward.getPointsRequired()) {
-            throw new RuntimeException("Bạn không đủ điểm để đổi mã giảm giá này.");
+        if (account.getAvailablePoints() == null
+                || account.getAvailablePoints()
+                < reward.getPointsRequired()) {
+            throw badRequest(
+                    "Bạn không đủ điểm để đổi phần thưởng."
+            );
         }
     }
 
-    private void deductPoints(LoyaltyAccount account, Integer points) {
-        account.setAvailablePoints(account.getAvailablePoints() - points);
+    private void deductPoints(
+            LoyaltyAccount account,
+            Integer points
+    ) {
+        account.setAvailablePoints(
+                account.getAvailablePoints() - points
+        );
+
         account.setUpdatedAt(OffsetDateTime.now());
-        loyaltyAccountRepository.save(account);
     }
 
     private void deductStock(Reward reward) {
-        reward.setStock(reward.getStock() - 1);
+        int remainingStock = reward.getStock() - 1;
 
-        if (reward.getStock() == 0) {
-            reward.setStatus("OUT_OF_STOCK");
+        reward.setStock(remainingStock);
+
+        if (remainingStock == 0) {
+            reward.setStatus(RewardStatus.OUT_OF_STOCK);
         }
-
-        rewardRepository.save(reward);
     }
 
-    private RewardRedemption saveRedemption(
+    private Promotion createPersonalPromotion(Reward reward) {
+        OffsetDateTime now = OffsetDateTime.now();
+
+        Promotion promotion = Promotion.builder()
+                .garageId(reward.getGarage().getId())
+                .promoCode(generatePromoCode(
+                        reward.getGarage().getId()
+                ))
+                .discountType(reward.getDiscountType())
+                .discountValue(reward.getDiscountValue())
+                .maxDiscount(reward.getMaxDiscount())
+                .minOrderValue(reward.getMinOrderValue())
+                .usageLimit(1)
+                .usedCount(0)
+                .startDate(now)
+                .endDate(
+                        now.plusDays(reward.getValidDays())
+                )
+                .status(PromotionStatus.ACTIVE)
+                .build();
+
+        return promotionRepository.save(promotion);
+    }
+
+    private RewardRedemption createRedemption(
             LoyaltyAccount account,
             Reward reward,
-            Promotion issuedPromotion) {
+            Promotion promotion
+    ) {
+        OffsetDateTime now = OffsetDateTime.now();
 
-        ZonedDateTime now = ZonedDateTime.now();
-
-        RewardRedemption redemption = RewardRedemption.builder()
-                .loyaltyAccount(account)
-                .garage(reward.getGarage())
-                .reward(reward)
-
-                // Lưu Promotion riêng vừa clone, không lưu Promotion mẫu
-                .promotion(issuedPromotion)
-
-                .pointsUsed(reward.getPointsRequired())
-                .status("COMPLETED")
-                .redeemedAt(now)
-                .completedAt(now)
-                .build();
+        RewardRedemption redemption =
+                RewardRedemption.builder()
+                        .loyaltyAccount(account)
+                        .garage(reward.getGarage())
+                        .reward(reward)
+                        .promotion(promotion)
+                        .pointsUsed(
+                                reward.getPointsRequired()
+                        )
+                        .status(COMPLETED)
+                        .redeemedAt(now)
+                        .approvedAt(now)
+                        .completedAt(now)
+                        .build();
 
         return redemptionRepository.save(redemption);
     }
 
-    private void saveRedeemTransaction(
+    private void createTransaction(
             LoyaltyAccount account,
-            RewardRedemption redemption) {
+            RewardRedemption redemption
+    ) {
+        LoyaltyTransaction transaction =
+                LoyaltyTransaction.builder()
+                        .account(account)
+                        .redemptionId(
+                                redemption.getRedemptionId()
+                        )
+                        .points(
+                                -redemption.getPointsUsed()
+                        )
+                        .transactionType(
+                                TransactionType.REDEEM
+                        )
+                        .description(
+                                "Đổi điểm lấy mã giảm giá: "
+                                        + redemption
+                                        .getPromotion()
+                                        .getPromoCode()
+                        )
+                        .earnedAt(OffsetDateTime.now())
+                        .createdAt(OffsetDateTime.now())
+                        .expired(false)
+                        .build();
 
-        OffsetDateTime now = OffsetDateTime.now();
-
-        LoyaltyTransaction transaction = LoyaltyTransaction.builder()
-                .account(account)
-                .redemptionId(redemption.getRedemptionId())
-                .points(-redemption.getPointsUsed())
-                .transactionType(TransactionType.REDEEM)
-                .description("Đổi điểm lấy mã giảm giá: "
-                        + redemption.getPromotion().getPromoCode())
-                .earnedAt(now)
-                .createdAt(now)
-                .expired(false)
-                .build();
-
-        loyaltyTransactionRepository.save(transaction);
+        transactionRepository.save(transaction);
     }
 
     private void createNotification(
             LoyaltyAccount account,
-            RewardRedemption redemption) {
-
-        String promoCode = redemption.getPromotion().getPromoCode();
-
-        Notification notification = Notification.builder()
-                .userId(account.getUser().getId())
-                .title("Đổi mã giảm giá thành công")
-                .content("Bạn đã đổi thành công mã giảm giá "
-                        + promoCode
-                        + " với "
-                        + redemption.getPointsUsed()
-                        + " điểm.")
-                .type(LOYALTY_UPDATE)
-                .channel(IN_APP)
-                .status(PENDING)
-                .isRead(false)
-                .createdAt(OffsetDateTime.now())
-                .build();
+            RewardRedemption redemption
+    ) {
+        Notification notification =
+                Notification.builder()
+                        .userId(account.getUser().getId())
+                        .title(
+                                "Đổi mã giảm giá thành công"
+                        )
+                        .content(
+                                "Mã của bạn: "
+                                        + redemption
+                                        .getPromotion()
+                                        .getPromoCode()
+                        )
+                        .type(LOYALTY_UPDATE)
+                        .channel(IN_APP)
+                        .status(PENDING)
+                        .isRead(false)
+                        .createdAt(
+                                OffsetDateTime.now()
+                        )
+                        .build();
 
         notificationRepository.save(notification);
     }
-    private Promotion issuePromotionForCustomer(
-            Promotion template,
-            Integer garageId) {
 
-        if (template == null) {
-            throw badRequest("Reward này không chứa Promotion.");
-        }
-
-        OffsetDateTime now = OffsetDateTime.now();
-
-        if (!ACTIVE.equals(template.getStatus())) {
-            throw badRequest("Promotion mẫu không còn hoạt động.");
-        }
-
-        if (template.getEndDate().isBefore(now)) {
-            throw badRequest("Promotion mẫu đã hết hạn.");
-        }
-
-        Promotion issuedPromotion = Promotion.builder()
-                .garageId(garageId)
-                .promoCode(generatePromoCode(garageId))
-                .discountValue(template.getDiscountValue())
-                .discountType(template.getDiscountType())
-                .maxDiscount(template.getMaxDiscount())
-                .minOrderValue(template.getMinOrderValue())
-
-                // Mã riêng chỉ được dùng 1 lần
-                .usageLimit(1)
-                .usedCount(0)
-
-                .startDate(now)
-                .endDate(template.getEndDate())
-                .status(ACTIVE)
-                .build();
-
-        return promotionRepository.save(issuedPromotion);
-    }private String generatePromoCode(Integer garageId) {
-
+    private String generatePromoCode(Integer garageId) {
         String promoCode;
 
         do {
             String randomPart = UUID.randomUUID()
                     .toString()
                     .replace("-", "")
-                    .substring(0, 6)
+                    .substring(0, 8)
                     .toUpperCase();
 
-            promoCode = "WM-G" + garageId + "-" + randomPart;
+            promoCode = "WM-G"
+                    + garageId
+                    + "-"
+                    + randomPart;
 
-        } while (promotionRepository.existsByPromoCode(promoCode));
+        } while (
+                promotionRepository.existsByPromoCode(
+                        promoCode
+                )
+        );
 
         return promoCode;
     }
-    private ResponseStatusException badRequest(String message) {
-        return new ResponseStatusException(
+
+    private ApiException notFound(String message) {
+        return new ApiException(
+                HttpStatus.NOT_FOUND,
+                message
+        );
+    }
+
+    private ApiException badRequest(String message) {
+        return new ApiException(
                 HttpStatus.BAD_REQUEST,
                 message
         );
