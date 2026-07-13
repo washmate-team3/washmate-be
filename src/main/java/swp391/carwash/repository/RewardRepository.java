@@ -19,7 +19,7 @@ public interface RewardRepository extends JpaRepository<Reward, Integer> {
 
     Page<Reward> findByGarageIdAndStatusAndStockGreaterThan(
             Integer garageId,
-            String status,
+            RewardStatus active,
             Integer stock,
             Pageable pageable
     );

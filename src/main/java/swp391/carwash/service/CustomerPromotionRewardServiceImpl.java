@@ -48,7 +48,7 @@ public class CustomerPromotionRewardServiceImpl
         return rewardRepository
                 .findByGarageIdAndStatusAndStockGreaterThan(
                         garageId,
-                        ACTIVE,
+                        RewardStatus.ACTIVE,
                         0,
                         pageable
                 )
