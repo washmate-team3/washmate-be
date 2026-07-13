@@ -614,7 +614,7 @@ public class BookingService {
                     "Bạn đã sử dụng mã khuyến mãi này.");
         }
 
-        if (!"ACTIVE".equals(promotion.getStatus())
+        if (!PromotionStatus.ACTIVE.equals(promotion.getStatus())
                 || now.isBefore(promotion.getStartDate())
                 || now.isAfter(promotion.getEndDate())
                 || (promotion.getUsageLimit() != null
@@ -632,7 +632,7 @@ public class BookingService {
                     "Mã khuyến mãi không áp dụng cho garage này");
         }
 
-        if ("PERCENTAGE".equals(promotion.getDiscountType())) {
+        if (DiscountType.PERCENTAGE.equals(promotion.getDiscountType())) {
 
             discount = totalAmount.multiply(
                             promotion.getDiscountValue())
@@ -644,7 +644,7 @@ public class BookingService {
                 discount = promotion.getMaxDiscount();
             }
 
-        } else if ("FIXED_AMOUNT".equals(promotion.getDiscountType())) {
+        } else if (DiscountType.FIXED_AMOUNT.equals(promotion.getDiscountType())) {
 
             discount = promotion.getDiscountValue();
         }
