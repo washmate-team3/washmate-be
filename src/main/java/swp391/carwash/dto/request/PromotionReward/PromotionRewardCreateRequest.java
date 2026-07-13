@@ -33,8 +33,7 @@ public class PromotionRewardCreateRequest {
     @Min(0)
     private Integer stock;
 
-    @NotBlank
-    @Pattern(regexp = "PERCENTAGE|FIXED_AMOUNT")
+    @NotNull(message = "Loại giảm giá không được để trống")
     private DiscountType discountType;
 
     @NotNull
