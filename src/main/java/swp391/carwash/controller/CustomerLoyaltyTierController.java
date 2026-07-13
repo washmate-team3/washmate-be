@@ -18,6 +18,7 @@ import swp391.carwash.dto.response.Loyaty.LoyaltyPolicyResponse;
 import swp391.carwash.dto.response.vehicles.LoyaltyTierResponse;
 import swp391.carwash.security.AppUserDetails;
 import swp391.carwash.service.CustomerLoyaltyService;
+import swp391.carwash.service.LoyaltyService;
 import swp391.carwash.service.LoyaltyTierService;
 
 import java.util.List;
@@ -30,6 +31,8 @@ public class
 CustomerLoyaltyTierController {
 
     private final CustomerLoyaltyService customerLoyaltyService;
+    private final LoyaltyService loyaltyService;
+
 
     @GetMapping
     @PreAuthorize("hasRole('CUSTOMER')")
@@ -52,11 +55,8 @@ CustomerLoyaltyTierController {
     @GetMapping("/transactions")
     @PreAuthorize("hasRole('CUSTOMER')")
     @Operation(summary = "Get my loyalty transactions")
-    public ResponseEntity<List<LoyaltyTransactionResponse>> getTransactions(
-            @AuthenticationPrincipal AppUserDetails principal) {
-
-        return ResponseEntity.ok(
-                customerLoyaltyService.getTransactions(principal.getId()));
+    public List<LoyaltyTransactionResponse> getMyLoyaltyTransactions(@AuthenticationPrincipal AppUserDetails principal) {
+        return loyaltyService.getMyTransactions(principal);
     }
 
     @GetMapping("/policy")

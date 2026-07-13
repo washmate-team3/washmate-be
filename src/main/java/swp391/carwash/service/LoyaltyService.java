@@ -26,13 +26,6 @@ public class LoyaltyService {
     private final LoyaltyTierHistoryRepository loyaltyTierHistoryRepository;
 
     @Transactional(readOnly = true)
-    public List<LoyaltyAccountResponse> getMyAccounts(AppUserDetails principal) {
-        return loyaltyAccountRepository.findByUserIdOrderByGarageNameAsc(principal.getId()).stream()
-                .map(LoyaltyAccountResponse::from)
-                .toList();
-    }
-
-    @Transactional(readOnly = true)
     public List<LoyaltyTransactionResponse> getMyTransactions(AppUserDetails principal) {
         return loyaltyTransactionRepository.findByAccountUserIdOrderByCreatedAtDesc(principal.getId()).stream()
                 .map(LoyaltyTransactionResponse::from)

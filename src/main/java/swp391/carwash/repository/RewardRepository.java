@@ -41,6 +41,7 @@ public interface RewardRepository extends JpaRepository<Reward, Integer> {
             Pageable pageable
     );
 
+
     Page<Reward> findByGarageIdAndStatusNot(
             Integer garageId,
             RewardStatus status,

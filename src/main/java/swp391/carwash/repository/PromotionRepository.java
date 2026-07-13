@@ -11,7 +11,7 @@ import swp391.carwash.enums.PromotionStatus;
 import java.time.OffsetDateTime;
 import java.util.List;
 
-public interface PromotionRepository
+public interface    PromotionRepository
         extends JpaRepository<Promotion, Integer> {
 
     @Query("""
@@ -62,6 +62,12 @@ public interface PromotionRepository
             Integer id
     );
 
+    @Query("""
+    SELECT p
+    FROM Promotion p
+    WHERE p.garageId = :garageId
+      AND p.status <> :status
+""")
     Page<Promotion> findByGarageIdAndStatusNot(
             Integer garageId,
             PromotionStatus status,

@@ -130,12 +130,6 @@ public class CustomerPromotionRewardServiceImpl
             LoyaltyAccount account,
             Reward reward
     ) {
-        if (!ACTIVE.equals(reward.getStatus())) {
-            throw badRequest(
-                    "Phần thưởng hiện không thể đổi."
-            );
-        }
-
         if (reward.getStock() == null
                 || reward.getStock() <= 0) {
             throw badRequest(
