@@ -15,29 +15,38 @@ public interface    PromotionRepository
         extends JpaRepository<Promotion, Integer> {
 
     @Query("""
-            SELECT DISTINCT p
-            FROM RewardRedemption rr
-            JOIN rr.promotion p
-            JOIN rr.loyaltyAccount account
-            WHERE p.garageId = :garageId
-              AND account.user.id = :userId
-              AND rr.status = 'COMPLETED'
-              AND rr.booking IS NULL
-              AND rr.usedAt IS NULL
-              AND p.status = 'ACTIVE'
-              AND :now BETWEEN p.startDate AND p.endDate
-              AND (
-                    p.usageLimit IS NULL
-                    OR p.usedCount < p.usageLimit
-              )
-              AND NOT EXISTS (
+    SELECT DISTINCT p
+    FROM Promotion p
+    WHERE p.garageId = :garageId
+      AND p.status = 'ACTIVE'
+      AND :now BETWEEN p.startDate AND p.endDate
+      AND (p.usageLimit IS NULL OR p.usedCount < p.usageLimit)
+      AND (
+            (
+                p.usageLimit = 1
+                AND EXISTS (
+                    SELECT rr.redemptionId
+                    FROM RewardRedemption rr
+                    WHERE rr.promotion = p
+                      AND rr.loyaltyAccount.user.id = :userId
+                      AND rr.status = 'COMPLETED'
+                      AND rr.booking IS NULL
+                      AND rr.usedAt IS NULL
+                )
+            )
+            OR
+            (
+                (p.usageLimit IS NULL OR p.usageLimit >= 2)
+                AND NOT EXISTS (
                     SELECT pu.id
                     FROM PromotionUsage pu
                     WHERE pu.promotion = p
                       AND pu.user.id = :userId
-              )
-            ORDER BY p.discountValue DESC
-            """)
+                )
+            )
+      )
+    ORDER BY p.discountValue DESC
+""")
     List<Promotion> findAvailablePromotions(
             @Param("garageId") Integer garageId,
             @Param("userId") Integer userId,
