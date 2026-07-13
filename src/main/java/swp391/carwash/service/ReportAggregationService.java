@@ -3,7 +3,6 @@ package swp391.carwash.service;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.HashSet;
 import java.util.List;
@@ -82,15 +81,13 @@ public class ReportAggregationService {
             Integer garageId) {
         OffsetDateTime fromTime = fromDate.atStartOfDay(zone).toOffsetDateTime();
         OffsetDateTime toTime = toDate.plusDays(1).atStartOfDay(zone).toOffsetDateTime();
-        ZonedDateTime redemptionFromTime = fromDate.atStartOfDay(zone);
-        ZonedDateTime redemptionToTime = toDate.plusDays(1).atStartOfDay(zone);
 
         return new InsightMetrics(
                 new InsightPeriod(fromDate, toDate),
                 bookingRepository.findForInsightPeriod(fromDate, toDate, garageId),
                 invoiceRepository.findPaidForInsightPeriod(InvoiceStatus.PAID, fromTime, toTime, garageId),
                 loyaltyTransactionRepository.findForInsightPeriod(fromTime, toTime, garageId),
-                rewardRedemptionRepository.findForInsightPeriod(redemptionFromTime, redemptionToTime, garageId),
+                rewardRedemptionRepository.findForInsightPeriod(fromTime, toTime, garageId),
                 activeServices,
                 customerIdsBeforePeriod,
                 accountsWithAvailablePoints);

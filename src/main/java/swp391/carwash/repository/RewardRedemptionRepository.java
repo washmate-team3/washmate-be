@@ -1,6 +1,6 @@
 package swp391.carwash.repository;
 
-import java.time.ZonedDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,8 +23,8 @@ public interface RewardRedemptionRepository extends JpaRepository<RewardRedempti
               and (:garageId is null or redemption.garage.id = :garageId)
             """)
     List<RewardRedemption> findForInsightPeriod(
-            @Param("fromTime") ZonedDateTime fromTime,
-            @Param("toTime") ZonedDateTime toTime,
+            @Param("fromTime") OffsetDateTime fromTime,
+            @Param("toTime") OffsetDateTime toTime,
             @Param("garageId") Integer garageId);
 
     Page<RewardRedemption>
