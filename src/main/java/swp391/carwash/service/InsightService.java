@@ -32,7 +32,7 @@ public class InsightService {
     private final BusinessInsightRepository businessInsightRepository;
     private final InsightRuleConfigRepository insightRuleConfigRepository;
 
-    @Transactional(readOnly = true)
+    @Transactional
     public AutoWashInsightsResponse getInsights(
             LocalDate fromDate,
             LocalDate toDate,
@@ -42,9 +42,18 @@ public class InsightService {
         InsightAnalysisContext context = reportAggregationService.aggregate(range.from(), range.to());
 
         InsightType persistedTypeFilter = normalizeType(type);
-        List<BusinessInsightResponse> insights = businessInsightRepository
-                .findForOwnerInsights(range.from(), range.to(), persistedTypeFilter, status)
-                .stream()
+        List<BusinessInsight> persisted = businessInsightRepository
+                .findForOwnerInsights(range.from(), range.to(), persistedTypeFilter, status);
+
+        // Auto-generate: nếu kỳ này chưa có insight nào được lưu nhưng có dữ liệu kinh doanh,
+        // chạy rule engine + lưu ngay để lần đọc này trả về kết quả (không cần bấm "Làm mới phân tích").
+        if (persisted.isEmpty() && context.current().hasBusinessData()) {
+            generateAndPersist(range, context);
+            persisted = businessInsightRepository
+                    .findForOwnerInsights(range.from(), range.to(), persistedTypeFilter, status);
+        }
+
+        List<BusinessInsightResponse> insights = persisted.stream()
                 .sorted(insightComparator())
                 .map(BusinessInsightResponse::from)
                 .toList();
@@ -78,6 +87,27 @@ public class InsightService {
                     "Không đủ dữ liệu để phân tích insight trong khoảng thời gian này.");
         }
 
+        GenerationResult generation = generateAndPersist(range, baseContext);
+
+        List<BusinessInsightResponse> responses = generation.insights().stream()
+                .sorted(insightComparator())
+                .map(BusinessInsightResponse::from)
+                .toList();
+        return new InsightGenerateResponse(
+                baseContext.current().period(),
+                generation.generatedCount(),
+                generation.createdCount(),
+                generation.updatedCount(),
+                responses,
+                "Đã generate và lưu AutoWash Insights.");
+    }
+
+    /**
+     * Chạy rule engine cho kỳ đang xét rồi upsert kết quả vào DB.
+     * Dùng chung cho cả {@link #generateInsights} (nút "Làm mới phân tích", scheduler)
+     * và {@link #getInsights} (auto-generate khi kỳ chưa có insight nào).
+     */
+    private GenerationResult generateAndPersist(DateRange range, InsightAnalysisContext baseContext) {
         List<InsightRuleConfig> ruleConfigs = insightRuleConfigRepository.findAll();
         InsightAnalysisContext context = new InsightAnalysisContext(
                 baseContext.current(),
@@ -98,18 +128,7 @@ public class InsightService {
             }
             savedInsights.add(result.insight());
         }
-
-        List<BusinessInsightResponse> responses = savedInsights.stream()
-                .sorted(insightComparator())
-                .map(BusinessInsightResponse::from)
-                .toList();
-        return new InsightGenerateResponse(
-                context.current().period(),
-                candidates.size(),
-                createdCount,
-                updatedCount,
-                responses,
-                "Đã generate và lưu AutoWash Insights.");
+        return new GenerationResult(savedInsights, candidates.size(), createdCount, updatedCount);
     }
 
     @Transactional
@@ -180,5 +199,12 @@ public class InsightService {
     }
 
     private record UpsertResult(BusinessInsight insight, boolean created) {
+    }
+
+    private record GenerationResult(
+            List<BusinessInsight> insights,
+            int generatedCount,
+            int createdCount,
+            int updatedCount) {
     }
 }
