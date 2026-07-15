@@ -25,5 +25,7 @@ public class LoyaltyTierResponse {
 
     private BigDecimal discountPercentage;
 
+    private Integer advanceBookingDays;
+
     private RecordStatus status;
 }

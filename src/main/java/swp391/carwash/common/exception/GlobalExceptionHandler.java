@@ -10,6 +10,7 @@ import org.springframework.dao.DataAccessException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -44,6 +45,15 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthenticationException.class)
     ResponseEntity<Map<String, Object>> handleAuthentication(AuthenticationException ex) {
         return error(HttpStatus.UNAUTHORIZED, "AUTH_INVALID_CREDENTIALS", "Invalid credentials", null);
+    }
+
+    /**
+     * Từ chối quyền (method security @PreAuthorize ném AuthorizationDeniedException,
+     * là con của AccessDeniedException) → 403, không để rơi vào handler chung thành 500.
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    ResponseEntity<Map<String, Object>> handleAccessDenied(AccessDeniedException ex) {
+        return error(HttpStatus.FORBIDDEN, "ACCESS_DENIED", "Bạn không có quyền thực hiện thao tác này", null);
     }
 
     @ExceptionHandler(ResponseStatusException.class)

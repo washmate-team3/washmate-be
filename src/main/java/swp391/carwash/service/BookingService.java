@@ -3,6 +3,7 @@ package swp391.carwash.service;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -140,21 +141,31 @@ public class BookingService {
                 .status("PENDING")
                 .build());
 
+        PaymentMethod paymentMethod = request.paymentMethod() == null ? PaymentMethod.CASH : request.paymentMethod();
         Payment payment = paymentRepository.findByBookingId(booking.getId())
                 .orElseGet(() -> paymentRepository.save(Payment.builder()
                         .booking(booking)
                         .garage(garage)
                         .amount(finalAmount)
-                        .method(request.paymentMethod() == null ? PaymentMethod.CASH : request.paymentMethod())
+                        .method(paymentMethod)
                         .status(PaymentStatus.PENDING)
-                        .expiresAt(OffsetDateTime.now().plusMinutes(paymentTimeoutMinutes))
+                        // expiresAt chỉ áp dụng cho VNPAY (cửa sổ thanh toán online).
+                        // CASH thu tiền tại chỗ nên không có hạn thanh toán -> để null.
+                        .expiresAt(resolvePaymentExpiresAt(paymentMethod))
                         .build()));
         if (request.paymentMethod() != null && payment.getMethod() != request.paymentMethod()) {
             payment.setMethod(request.paymentMethod());
+            payment.setExpiresAt(resolvePaymentExpiresAt(request.paymentMethod()));
             payment.setUpdatedAt(OffsetDateTime.now());
         }
 
         return BookingResponse.from(booking, payment, null);
+    }
+
+    private OffsetDateTime resolvePaymentExpiresAt(PaymentMethod method) {
+        return method == PaymentMethod.VNPAY
+                ? OffsetDateTime.now().plusMinutes(paymentTimeoutMinutes)
+                : null;
     }
 
     @Transactional(readOnly = true)
@@ -271,7 +282,8 @@ public class BookingService {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Vehicle does not belong to the customer");
         }
 
-        validateBookingDate(request.bookingDate());
+        validateBookingDate(request.bookingDate(), resolveAdvanceWindowDays(booking.getUser().getId(), newGarage.getId()));
+        validateSlotNotStarted(request.bookingDate(), newSlot);
         if (bookingRepository.existsActiveBookingForUserAndSlot(
                 booking.getUser().getId(), newSlot.getId(), request.bookingDate(), CAPACITY_BLOCKING_STATUSES, booking.getId())) {
             throw new ApiException(HttpStatus.CONFLICT, "Khách hàng đã có lịch đặt cho khung giờ này");
@@ -288,8 +300,15 @@ public class BookingService {
         booking.setBookingDate(request.bookingDate());
 
         BigDecimal newTotal = newService.getPrice();
-        BigDecimal newFinal = newTotal.subtract(booking.getDiscountAmount());
+        // Giữ mức giảm giá cũ nhưng không cho vượt quá giá service mới,
+        // đảm bảo final >= 0 và giữ đúng ràng buộc final = total - discount.
+        BigDecimal newDiscount = booking.getDiscountAmount();
+        if (newDiscount.compareTo(newTotal) > 0) {
+            newDiscount = newTotal;
+        }
+        BigDecimal newFinal = newTotal.subtract(newDiscount);
         booking.setTotalAmount(newTotal);
+        booking.setDiscountAmount(newDiscount);
         booking.setFinalAmount(newFinal);
 
         payment.setAmount(newFinal);
@@ -404,7 +423,7 @@ public class BookingService {
 
     @Transactional
     public BookingResponse complete(Integer bookingId, AppUserDetails principal) {
-        Booking booking = findDetailedBooking(bookingId);
+        Booking booking = findDetailedBookingForUpdate(bookingId);
         authorizeGarageOperation(booking, principal);
         requireStatus(booking, BookingStatus.WASHING, "Only WASHING booking can be completed");
         Payment payment = paymentRepository.findByBookingId(bookingId)
@@ -503,7 +522,8 @@ public class BookingService {
         if (!vehicle.getUser().getId().equals(customer.getId())) {
             throw new ApiException(HttpStatus.FORBIDDEN, "Vehicle does not belong to current user");
         }
-        validateBookingDate(request.bookingDate());
+        validateBookingDate(request.bookingDate(), resolveAdvanceWindowDays(customer.getId(), garage.getId()));
+        validateSlotNotStarted(request.bookingDate(), slot);
         if (bookingRepository.existsActiveBookingForUserAndSlot(
                 customer.getId(), slot.getId(), request.bookingDate(), CAPACITY_BLOCKING_STATUSES, null)) {
             throw new ApiException(HttpStatus.CONFLICT, "Bạn đã có lịch đặt cho khung giờ này");
@@ -515,19 +535,47 @@ public class BookingService {
         }
     }
 
-    private void validateBookingDate(LocalDate bookingDate) {
+    // Chặn đặt khung giờ mà thời điểm bắt đầu đã trôi qua (đặc biệt là slot trong ngày hôm nay).
+    private void validateSlotNotStarted(LocalDate bookingDate, BookingSlot slot) {
+        if (slot.getStartTime() == null) {
+            return;
+        }
+        if (!LocalDateTime.of(bookingDate, slot.getStartTime()).isAfter(LocalDateTime.now())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST,
+                    "Khung giờ đã bắt đầu hoặc đã qua, vui lòng chọn khung giờ khác");
+        }
+    }
+
+    private void validateBookingDate(LocalDate bookingDate, int advanceWindowDays) {
         LocalDate today = LocalDate.now();
         if (bookingDate.isBefore(today)) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "Ngày đặt lịch không được ở quá khứ");
         }
-        if (bookingDate.isAfter(today.plusDays(maxAdvanceDays))) {
+        if (bookingDate.isAfter(today.plusDays(advanceWindowDays))) {
             throw new ApiException(HttpStatus.BAD_REQUEST,
-                    "Chỉ được đặt lịch trước tối đa " + maxAdvanceDays + " ngày");
+                    "Hạng thành viên của bạn chỉ được đặt lịch trước tối đa " + advanceWindowDays + " ngày");
         }
+    }
+
+    /**
+     * Cửa sổ đặt trước theo hạng thành viên: hạng cao đặt xa hơn nên ưu tiên vào slot sớm hơn.
+     * Không có tài khoản/hạng hoặc hạng chưa cấu hình window → dùng mặc định hệ thống.
+     */
+    private int resolveAdvanceWindowDays(Integer userId, Integer garageId) {
+        return loyaltyAccountRepository.findByUserIdAndGarageId(userId, garageId)
+                .map(LoyaltyAccount::getTier)
+                .map(MembershipTier::getAdvanceBookingDays)
+                .filter(days -> days > 0)
+                .orElse(maxAdvanceDays);
     }
 
     private Booking findDetailedBooking(Integer bookingId) {
         return bookingRepository.findDetailedById(bookingId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Booking not found"));
+    }
+
+    private Booking findDetailedBookingForUpdate(Integer bookingId) {
+        return bookingRepository.findDetailedByIdForUpdate(bookingId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "Booking not found"));
     }
 

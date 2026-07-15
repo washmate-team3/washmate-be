@@ -27,7 +27,7 @@ public class GeminiClient {
     public GeminiClient(GeminiProperties geminiProperties) {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(10000);
-        factory.setReadTimeout(30000);
+        factory.setReadTimeout(15000);
         this.restTemplate = new RestTemplate(factory);
         this.geminiProperties = geminiProperties;
     }
@@ -52,9 +52,7 @@ public class GeminiClient {
                                 ))
                                 .build()
                 ))
-                .generationConfig(GeminiRequest.GenerationConfig.builder()
-                        .responseMimeType("application/json")
-                        .build())
+                .generationConfig(buildGenerationConfig())
                 .build();
 
         HttpHeaders headers = new HttpHeaders();
@@ -83,6 +81,19 @@ public class GeminiClient {
             log.error("Unexpected Gemini API client error: {}", e.getClass().getSimpleName());
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Gemini API error");
         }
+    }
+
+    private GeminiRequest.GenerationConfig buildGenerationConfig() {
+        GeminiRequest.GenerationConfig.GenerationConfigBuilder config = GeminiRequest.GenerationConfig.builder()
+                .responseMimeType("application/json")
+                .temperature(geminiProperties.getTemperature())
+                .maxOutputTokens(geminiProperties.getMaxOutputTokens());
+        if (geminiProperties.getThinkingBudget() != null) {
+            config.thinkingConfig(GeminiRequest.ThinkingConfig.builder()
+                    .thinkingBudget(geminiProperties.getThinkingBudget())
+                    .build());
+        }
+        return config.build();
     }
 
     public boolean isConfigured() {

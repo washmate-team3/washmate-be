@@ -47,7 +47,8 @@ public final class InsightTestData {
                 redemptions,
                 services,
                 priorCustomerIds,
-                accountsWithPoints);
+                accountsWithPoints,
+                LoyaltyStateSnapshot.empty());
     }
 
     public static Garage garage() {

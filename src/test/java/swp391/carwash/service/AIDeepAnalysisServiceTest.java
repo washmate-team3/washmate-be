@@ -80,7 +80,7 @@ class AIDeepAnalysisServiceTest {
 
     @BeforeEach
     void setUp() {
-        ObjectMapper objectMapper = new ObjectMapper();
+        ObjectMapper objectMapper = new ObjectMapper().findAndRegisterModules();
         GeminiProperties geminiProperties = new GeminiProperties();
         service = new AIDeepAnalysisService(
                 metricSnapshotBuilder,

@@ -1,5 +1,6 @@
 package swp391.carwash.repository;
 
+import jakarta.persistence.LockModeType;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -8,6 +9,7 @@ import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import swp391.carwash.entity.Booking;
@@ -17,6 +19,26 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
   @EntityGraph(attributePaths = { "user", "garage", "slot", "service", "vehicle", "assignedStaff" })
   @Query("select b from Booking b where b.id = :id")
   Optional<Booking> findDetailedById(@Param("id") Integer id);
+
+  // Khóa bi quan row booking cho các chuyển trạng thái nhạy cảm (vd complete cộng điểm),
+  // tránh xử lý trùng khi có request đồng thời.
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @EntityGraph(attributePaths = { "user", "garage", "slot", "service", "vehicle", "assignedStaff" })
+  @Query("select b from Booking b where b.id = :id")
+  Optional<Booking> findDetailedByIdForUpdate(@Param("id") Integer id);
+
+  /** Email khách "inactive": lần đặt gần nhất trước mốc cutoff (tệp win-back). */
+  @Query("""
+      select b.user.email
+      from Booking b
+      where b.user.email is not null
+        and (:garageId is null or b.garage.id = :garageId)
+      group by b.user.email
+      having max(b.bookingDate) < :cutoff
+      """)
+  List<String> findInactiveCustomerEmails(
+      @Param("cutoff") LocalDate cutoff,
+      @Param("garageId") Integer garageId);
 
   @EntityGraph(attributePaths = { "user", "garage", "slot", "service", "vehicle", "assignedStaff" })
   List<Booking> findByUserIdOrderByCreatedAtDesc(Integer userId);
@@ -169,4 +191,14 @@ public interface BookingRepository extends JpaRepository<Booking, Integer> {
   default List<Integer> findDistinctCustomerIdsWithBookingBefore(LocalDate beforeDate) {
     return findDistinctCustomerIdsWithBookingBefore(beforeDate, null);
   }
+
+  // Đơn còn PENDING và có bookingDate <= hôm nay (ứng viên có thể đã quá khung giờ).
+  // Lọc chính xác theo giờ kết thúc của slot được thực hiện ở tầng scheduler.
+  @EntityGraph(attributePaths = { "user", "garage", "slot" })
+  @Query("""
+      SELECT b FROM Booking b
+      WHERE b.status = swp391.carwash.enums.BookingStatus.PENDING
+        AND b.bookingDate <= :today
+      """)
+  List<Booking> findPendingBookingsUpToDate(@Param("today") LocalDate today);
 }

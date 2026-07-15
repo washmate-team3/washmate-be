@@ -41,6 +41,7 @@ public class InsightMetrics {
     private final List<ServicePackage> activeServices;
     private final Set<Integer> customerIdsBeforePeriod;
     private final long loyaltyAccountsWithAvailablePoints;
+    private final LoyaltyStateSnapshot loyaltyState;
 
     private List<ServiceStats> serviceStats;
     private List<TimeSlotStats> timeSlotStats;
@@ -53,7 +54,8 @@ public class InsightMetrics {
             List<RewardRedemption> rewardRedemptions,
             List<ServicePackage> activeServices,
             Set<Integer> customerIdsBeforePeriod,
-            long loyaltyAccountsWithAvailablePoints) {
+            long loyaltyAccountsWithAvailablePoints,
+            LoyaltyStateSnapshot loyaltyState) {
         this.period = period;
         this.bookings = List.copyOf(bookings);
         this.paidInvoices = List.copyOf(paidInvoices);
@@ -62,6 +64,7 @@ public class InsightMetrics {
         this.activeServices = List.copyOf(activeServices);
         this.customerIdsBeforePeriod = Set.copyOf(customerIdsBeforePeriod);
         this.loyaltyAccountsWithAvailablePoints = loyaltyAccountsWithAvailablePoints;
+        this.loyaltyState = loyaltyState == null ? LoyaltyStateSnapshot.empty() : loyaltyState;
     }
 
     public InsightPeriod period() {
@@ -374,6 +377,46 @@ public class InsightMetrics {
 
     public long loyaltyAccountsWithAvailablePoints() {
         return loyaltyAccountsWithAvailablePoints;
+    }
+
+    public LoyaltyStateSnapshot loyaltyState() {
+        return loyaltyState;
+    }
+
+    public long pointsExpiringSoon() {
+        return loyaltyState.pointsExpiringSoon();
+    }
+
+    public long accountsWithExpiringPoints() {
+        return loyaltyState.accountsWithExpiringPoints();
+    }
+
+    public long customersNearNextTier() {
+        return loyaltyState.customersNearNextTier();
+    }
+
+    public long tierDowngradeCount() {
+        return loyaltyState.downgradeCount();
+    }
+
+    public long totalActiveLoyaltyAccounts() {
+        return loyaltyState.totalActiveAccounts();
+    }
+
+    public long lowestTierAccounts() {
+        return loyaltyState.lowestTierAccounts();
+    }
+
+    public long inactiveCustomers() {
+        return loyaltyState.inactiveCustomers();
+    }
+
+    public double tierDowngradeRatePercent() {
+        return loyaltyState.downgradeRatePercent();
+    }
+
+    public double lowestTierSharePercent() {
+        return loyaltyState.lowestTierSharePercent();
     }
 
     public double redemptionRateAgainstEarnedPointsPercent() {

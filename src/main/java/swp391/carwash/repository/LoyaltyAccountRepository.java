@@ -71,6 +71,29 @@ public interface LoyaltyAccountRepository extends JpaRepository<LoyaltyAccount, 
     })
     List<LoyaltyAccount> findByStatus(RecordStatus status);
 
+    @Query("""
+            select distinct account.user.email
+            from LoyaltyAccount account
+            where account.status = :status
+              and account.user.email is not null
+              and account.availablePoints > 0
+              and (:garageId is null or account.garage.id = :garageId)
+            """)
+    List<String> findEmailsWithAvailablePoints(
+            @Param("status") RecordStatus status,
+            @Param("garageId") Integer garageId);
+
+    @Query("""
+            select distinct account.user.email
+            from LoyaltyAccount account
+            where account.status = :status
+              and account.user.email is not null
+              and (:garageId is null or account.garage.id = :garageId)
+            """)
+    List<String> findActiveLoyaltyEmails(
+            @Param("status") RecordStatus status,
+            @Param("garageId") Integer garageId);
+
 
 
 }

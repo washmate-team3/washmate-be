@@ -57,4 +57,47 @@ AND lt.createdAt < :to
             TransactionType transactionType,
             OffsetDateTime now
     );
+
+    @Query("""
+            select coalesce(sum(transaction.points), 0)
+            from LoyaltyTransaction transaction
+            where transaction.transactionType = :type
+              and transaction.expired = false
+              and transaction.expiresAt is not null
+              and transaction.expiresAt <= :threshold
+              and (:garageId is null or transaction.account.garage.id = :garageId)
+            """)
+    long sumExpiringPoints(
+            @Param("type") TransactionType type,
+            @Param("threshold") OffsetDateTime threshold,
+            @Param("garageId") Integer garageId);
+
+    @Query("""
+            select count(distinct transaction.account.id)
+            from LoyaltyTransaction transaction
+            where transaction.transactionType = :type
+              and transaction.expired = false
+              and transaction.expiresAt is not null
+              and transaction.expiresAt <= :threshold
+              and (:garageId is null or transaction.account.garage.id = :garageId)
+            """)
+    long countAccountsWithExpiringPoints(
+            @Param("type") TransactionType type,
+            @Param("threshold") OffsetDateTime threshold,
+            @Param("garageId") Integer garageId);
+
+    @Query("""
+            select distinct transaction.account.user.email
+            from LoyaltyTransaction transaction
+            where transaction.transactionType = :type
+              and transaction.expired = false
+              and transaction.expiresAt is not null
+              and transaction.expiresAt <= :threshold
+              and transaction.account.user.email is not null
+              and (:garageId is null or transaction.account.garage.id = :garageId)
+            """)
+    List<String> findDistinctEmailsWithExpiringPoints(
+            @Param("type") TransactionType type,
+            @Param("threshold") OffsetDateTime threshold,
+            @Param("garageId") Integer garageId);
 }

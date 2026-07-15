@@ -13,7 +13,7 @@ class MigrationContractTest {
 
     @Test
     void initialSchemaDefinesCapacityAndPaymentGuards() throws IOException {
-        String migration = Files.readString(MIGRATION_DIR.resolve("V2__init_washmate_schema.sql"));
+        String migration = Files.readString(MIGRATION_DIR.resolve("V1__baseline_schema.sql"));
 
         assertTrue(migration.contains("CREATE TRIGGER trg_check_booking_slot_capacity"));
         assertTrue(migration.contains("CREATE TRIGGER trg_refresh_booking_slot_capacity_insert_update"));
@@ -23,7 +23,7 @@ class MigrationContractTest {
 
     @Test
     void publicSchemaMigrationEnablesRlsAndRevokesDataApiRoles() throws IOException {
-        String migration = Files.readString(MIGRATION_DIR.resolve("V3__secure_public_schema_for_backend_only_access.sql"));
+        String migration = Files.readString(MIGRATION_DIR.resolve("V1__baseline_schema.sql"));
 
         assertTrue(migration.contains("ENABLE ROW LEVEL SECURITY"));
         assertTrue(migration.contains("rolname = 'anon'"));
@@ -34,8 +34,8 @@ class MigrationContractTest {
 
     @Test
     void insightMigrationEnablesRlsAndAddsReportingIndexes() throws IOException {
-        String migration = Files.readString(MIGRATION_DIR.resolve("V9__autowash_insights.sql"));
-        String sourceMigration = Files.readString(MIGRATION_DIR.resolve("V10__insight_ai_source_evidence.sql"));
+        String migration = Files.readString(MIGRATION_DIR.resolve("V1__baseline_schema.sql"));
+        String sourceMigration = Files.readString(MIGRATION_DIR.resolve("V1__baseline_schema.sql"));
 
         assertTrue(migration.contains("CREATE TABLE IF NOT EXISTS insight_rule_config"));
         assertTrue(migration.contains("CREATE TABLE IF NOT EXISTS business_insight"));

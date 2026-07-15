@@ -17,6 +17,7 @@ public class CustomerInsightRule implements InsightRule {
     public static final String HIGH_RETURNING_CUSTOMER_RATE = "HIGH_RETURNING_CUSTOMER_RATE";
     public static final String LOW_RETURNING_CUSTOMER_RATE = "LOW_RETURNING_CUSTOMER_RATE";
     public static final String HIGH_VALUE_CUSTOMER_GROUP = "HIGH_VALUE_CUSTOMER_GROUP";
+    public static final String INACTIVE_WINBACK = "INACTIVE_WINBACK";
 
     @Override
     public InsightType type() {
@@ -27,6 +28,23 @@ public class CustomerInsightRule implements InsightRule {
     public List<InsightResponse> evaluate(InsightAnalysisContext context) {
         List<InsightResponse> insights = new ArrayList<>();
         InsightMetrics current = context.current();
+
+        // Win-back: nhiều khách lâu chưa quay lại → nối tới chiến dịch email + voucher.
+        if (context.active(INACTIVE_WINBACK)
+                && current.inactiveCustomers() >= context.threshold(INACTIVE_WINBACK, InsightThresholds.MIN_INACTIVE_CUSTOMERS)) {
+            insights.add(new InsightResponse(
+                    INACTIVE_WINBACK,
+                    type(),
+                    context.severity(INACTIVE_WINBACK, InsightSeverity.WARNING),
+                    "Nhiều khách lâu chưa quay lại",
+                    "Có " + InsightText.number(current.inactiveCustomers()) + " khách đã hơn "
+                            + InsightThresholds.INACTIVE_DAYS + " ngày không đặt lịch.",
+                    "Tính theo lần đặt lịch gần nhất của mỗi khách so với mốc " + InsightThresholds.INACTIVE_DAYS + " ngày.",
+                    "Đây là tệp khách có nguy cơ rời bỏ; để lâu sẽ giảm doanh thu lặp lại và giá trị vòng đời khách hàng.",
+                    "Gửi email win-back kèm voucher để khuyến khích khách quay lại rửa xe.",
+                    "inactiveCustomers",
+                    context.createdAt()));
+        }
 
         if (current.totalOrders() > 0
                 && context.active(HIGH_RETURNING_CUSTOMER_RATE)

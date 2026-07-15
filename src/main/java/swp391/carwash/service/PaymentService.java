@@ -37,6 +37,11 @@ public class PaymentService {
             BookingStatus.CHECKED_IN,
             BookingStatus.WASHING);
 
+    // Chỉ các phương thức thu tại chỗ mới được nhân viên xác nhận thủ công.
+    // VNPAY do IPN xử lý; các cổng online khác (nếu thêm sau) mặc định bị chặn.
+    private static final EnumSet<PaymentMethod> MANUAL_CONFIRMABLE_METHODS = EnumSet.of(
+            PaymentMethod.CASH);
+
     private final BookingRepository bookingRepository;
     private final InvoiceRepository invoiceRepository;
     private final PaymentRepository paymentRepository;
@@ -73,10 +78,10 @@ public class PaymentService {
         Booking booking = findDetailedBooking(payment.getBooking().getId());
         authorizeGarageOperation(booking, principal);
 
-        return confirmPendingPayment(payment, booking, request);
+        return confirmPendingPayment(payment, booking, request, principal.getId());
     }
 
-    private BookingResponse confirmPendingPayment(Payment payment, Booking booking, PaymentConfirmRequest request) {
+    private BookingResponse confirmPendingPayment(Payment payment, Booking booking, PaymentConfirmRequest request, Integer confirmedByUserId) {
         if (!PAYABLE_BOOKING_STATUSES.contains(booking.getStatus())) {
             throw new ApiException(HttpStatus.CONFLICT, "Only active booking can be paid");
         }
@@ -90,6 +95,10 @@ public class PaymentService {
         if (payment.getMethod() == PaymentMethod.VNPAY || method == PaymentMethod.VNPAY) {
             throw new ApiException(HttpStatus.CONFLICT, "VNPAY payment can only be confirmed by a verified IPN");
         }
+        if (!MANUAL_CONFIRMABLE_METHODS.contains(method)) {
+            throw new ApiException(HttpStatus.CONFLICT,
+                    "Payment method " + method + " cannot be confirmed manually");
+        }
 
         String provider = providerOrManual(request == null ? null : request.provider());
         String providerTxnId = request == null ? null : request.providerTxnId();
@@ -97,7 +106,7 @@ public class PaymentService {
 
         OffsetDateTime now = OffsetDateTime.now();
         PaymentTransaction transaction = recordPaymentTransaction(
-                payment, PaymentTransactionStatus.SUCCESS, provider, providerTxnId);
+                payment, PaymentTransactionStatus.SUCCESS, provider, providerTxnId, confirmedByUserId);
         Invoice invoice = paymentSettlementService.settle(payment, booking, transaction, method, now);
 
         return BookingResponse.from(booking, payment, invoice);
@@ -134,7 +143,7 @@ public class PaymentService {
         OffsetDateTime now = OffsetDateTime.now();
         payment.setStatus(PaymentStatus.REFUNDED);
         payment.setUpdatedAt(now);
-        recordPaymentTransaction(payment, PaymentTransactionStatus.REFUNDED, provider, providerTxnId);
+        recordPaymentTransaction(payment, PaymentTransactionStatus.REFUNDED, provider, providerTxnId, principal.getId());
 
         Invoice invoice = invoiceRepository.findByBookingId(booking.getId()).orElse(null);
         if (invoice != null) {
@@ -181,7 +190,7 @@ public class PaymentService {
         payment.setUpdatedAt(now);
         booking.setStatus(BookingStatus.CANCELLED);
         booking.setCancelledAt(now);
-        recordPaymentTransaction(payment, transactionStatus, provider, providerTxnId);
+        recordPaymentTransaction(payment, transactionStatus, provider, providerTxnId, principal.getId());
 
         Invoice invoice = invoiceRepository.findByBookingId(booking.getId()).orElse(null);
         return BookingResponse.from(booking, payment, invoice);
@@ -228,7 +237,7 @@ public class PaymentService {
         }
     }
 
-    private PaymentTransaction recordPaymentTransaction(Payment payment, PaymentTransactionStatus status, String provider, String providerTxnId) {
+    private PaymentTransaction recordPaymentTransaction(Payment payment, PaymentTransactionStatus status, String provider, String providerTxnId, Integer confirmedByUserId) {
         try {
             PaymentTransaction transaction = paymentTransactionRepository.save(PaymentTransaction.builder()
                     .payment(payment)
@@ -236,6 +245,7 @@ public class PaymentService {
                     .providerTxnId(providerTxnId)
                     .amount(payment.getAmount())
                     .status(status)
+                    .confirmedByUserId(confirmedByUserId)
                     .build());
             paymentTransactionRepository.flush();
             return transaction;

@@ -155,7 +155,7 @@ class BookingServiceTest {
                 .build();
 
         when(principal.getRoleNames()).thenReturn(List.of("ADMIN"));
-        when(bookingRepository.findDetailedById(100)).thenReturn(Optional.of(booking));
+        when(bookingRepository.findDetailedByIdForUpdate(100)).thenReturn(Optional.of(booking));
         when(paymentRepository.findByBookingId(100)).thenReturn(Optional.of(payment));
 
         ApiException exception = assertThrows(ApiException.class, () -> bookingService.complete(100, principal));

@@ -53,6 +53,7 @@ public class LoyaltyTierServiceImpl implements LoyaltyTierService{
                 .minPoints(request.getMinPoints())
                 .maintainPoints(request.getMaintainPoints())
                 .discountPercentage(request.getDiscountPercentage())
+                .advanceBookingDays(request.getAdvanceBookingDays())
                 .status(RecordStatus.ACTIVE)
                 .build();
 
@@ -79,6 +80,7 @@ public class LoyaltyTierServiceImpl implements LoyaltyTierService{
         tier.setMinPoints(request.getMinPoints());
         tier.setMaintainPoints(request.getMaintainPoints());
         tier.setDiscountPercentage(request.getDiscountPercentage());
+        tier.setAdvanceBookingDays(request.getAdvanceBookingDays());
 
         MembershipTier updatedTier = membershipTierRepository.save(tier);
 
@@ -118,6 +120,7 @@ public class LoyaltyTierServiceImpl implements LoyaltyTierService{
         response.setMinPoints(tier.getMinPoints());
         response.setMaintainPoints(tier.getMaintainPoints());
         response.setDiscountPercentage(tier.getDiscountPercentage());
+        response.setAdvanceBookingDays(tier.getAdvanceBookingDays());
         response.setStatus(tier.getStatus());
 
         return response;

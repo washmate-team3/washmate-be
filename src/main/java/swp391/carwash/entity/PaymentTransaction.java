@@ -9,7 +9,11 @@ import org.hibernate.type.SqlTypes;
 import swp391.carwash.enums.PaymentTransactionStatus;
 
 @Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-@Entity @Table(name = "payment_transaction")
+@Entity
+@Table(name = "payment_transaction", uniqueConstraints = {
+        @UniqueConstraint(name = "uq_provider_txn_idempotency", columnNames = {"provider", "provider_txn_id"}),
+        @UniqueConstraint(name = "uq_payment_txn_merchant_ref", columnNames = {"provider", "merchant_txn_ref"})
+})
 public class PaymentTransaction {
     @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "payment_transaction_id")
@@ -42,6 +46,11 @@ public class PaymentTransaction {
 
     @Column(name = "expires_at")
     private OffsetDateTime expiresAt;
+
+    // Nhân viên/garage đã xác nhận (thu tiền) giao dịch này — phục vụ đối soát.
+    // Null với giao dịch tự động (ví dụ IPN của VNPAY).
+    @Column(name = "confirmed_by_user_id")
+    private Integer confirmedByUserId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @Builder.Default

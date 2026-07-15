@@ -1,6 +1,7 @@
 package swp391.carwash.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -18,11 +19,14 @@ import swp391.carwash.entity.AppUser;
 import swp391.carwash.entity.Booking;
 import swp391.carwash.entity.Garage;
 import swp391.carwash.entity.LoyaltyAccount;
+import swp391.carwash.entity.LoyaltyPolicy;
 import swp391.carwash.entity.LoyaltyTransaction;
 import swp391.carwash.entity.MembershipTier;
 import swp391.carwash.enums.RecordStatus;
 import swp391.carwash.enums.TransactionType;
 import swp391.carwash.repository.LoyaltyAccountRepository;
+import swp391.carwash.repository.LoyaltyPolicyRepository;
+import swp391.carwash.repository.LoyaltyTierHistoryRepository;
 import swp391.carwash.repository.LoyaltyTransactionRepository;
 import swp391.carwash.repository.MembershipTierRepository;
 
@@ -34,6 +38,10 @@ class LoyaltyServiceTest {
     private LoyaltyTransactionRepository loyaltyTransactionRepository;
     @Mock
     private MembershipTierRepository membershipTierRepository;
+    @Mock
+    private LoyaltyPolicyRepository loyaltyPolicyRepository;
+    @Mock
+    private LoyaltyTierHistoryRepository loyaltyTierHistoryRepository;
 
     @InjectMocks
     private LoyaltyService loyaltyService;
@@ -43,19 +51,27 @@ class LoyaltyServiceTest {
     private AppUser customer;
     private LoyaltyAccount account;
     private MembershipTier tier;
+    private LoyaltyPolicy policy;
 
     @BeforeEach
     void setUp() {
         garage = Garage.builder().id(1).build();
         customer = AppUser.builder().id(10).build();
-        
+
         tier = MembershipTier.builder().id(1).garage(garage).minPoints(0).status(RecordStatus.ACTIVE).build();
+
+        // 1 điểm = 10.000đ → 50.000đ = 5 điểm
+        policy = LoyaltyPolicy.builder()
+                .amountPerPoint(new BigDecimal("10000"))
+                .autoEnroll(true)
+                .status(RecordStatus.ACTIVE)
+                .build();
 
         booking = Booking.builder()
                 .id(100)
                 .user(customer)
                 .garage(garage)
-                .finalAmount(new BigDecimal("50000.00")) // 50000 / 10000 = 5 points
+                .finalAmount(new BigDecimal("50000.00"))
                 .build();
 
         account = LoyaltyAccount.builder()
@@ -70,7 +86,8 @@ class LoyaltyServiceTest {
 
     @Test
     void accruePointsCalculatesAndSavesProperly() {
-        when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100,TransactionType.EARN)).thenReturn(false);
+        when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, TransactionType.EARN)).thenReturn(false);
+        when(loyaltyPolicyRepository.findByGarageIdAndStatus(1, RecordStatus.ACTIVE)).thenReturn(Optional.of(policy));
         when(loyaltyAccountRepository.findByUserIdAndGarageId(10, 1)).thenReturn(Optional.of(account));
         when(membershipTierRepository.findFirstByGarageIdAndStatusAndMinPointsLessThanEqualOrderByMinPointsDesc(1, RecordStatus.ACTIVE, 15))
                 .thenReturn(Optional.of(tier));
@@ -83,33 +100,34 @@ class LoyaltyServiceTest {
     }
 
     @Test
-    void accruePointsDoesNotRunTwice() {
+    void accruePointsThrowsWhenAlreadyEarned() {
         when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, TransactionType.EARN)).thenReturn(true);
 
-        loyaltyService.accruePoints(booking);
+        assertThrows(IllegalStateException.class, () -> loyaltyService.accruePoints(booking));
 
         verify(loyaltyAccountRepository, never()).save(any());
         verify(loyaltyTransactionRepository, never()).save(any());
     }
 
     @Test
-    void accruePointsNoPointsForZeroAmount() {
+    void accruePointsThrowsForZeroAmount() {
         booking.setFinalAmount(BigDecimal.ZERO);
         when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, TransactionType.EARN)).thenReturn(false);
 
-        loyaltyService.accruePoints(booking);
+        assertThrows(IllegalArgumentException.class, () -> loyaltyService.accruePoints(booking));
 
         verify(loyaltyAccountRepository, never()).save(any());
     }
 
     @Test
-    void accruePointsSkipsWhenGarageHasNoActiveTier() {
+    void accruePointsThrowsWhenGarageHasNoActiveTier() {
         when(loyaltyTransactionRepository.existsByBookingIdAndTransactionType(100, TransactionType.EARN)).thenReturn(false);
+        when(loyaltyPolicyRepository.findByGarageIdAndStatus(1, RecordStatus.ACTIVE)).thenReturn(Optional.of(policy));
         when(loyaltyAccountRepository.findByUserIdAndGarageId(10, 1)).thenReturn(Optional.empty());
         when(membershipTierRepository.findFirstByGarageIdAndStatusOrderByMinPointsAsc(1, RecordStatus.ACTIVE))
                 .thenReturn(Optional.empty());
 
-        loyaltyService.accruePoints(booking);
+        assertThrows(IllegalStateException.class, () -> loyaltyService.accruePoints(booking));
 
         verify(loyaltyAccountRepository, never()).save(any());
         verify(loyaltyTransactionRepository, never()).save(any());
@@ -125,8 +143,6 @@ class LoyaltyServiceTest {
 
         when(loyaltyTransactionRepository.findByBookingIdAndTransactionType(100, TransactionType.EARN)).thenReturn(Optional.of(earned));
         when(loyaltyTransactionRepository.existsBySourceTransactionIdAndTransactionType(99, TransactionType.ROLLBACK)).thenReturn(false);
-        when(membershipTierRepository.findFirstByGarageIdAndStatusAndMinPointsLessThanEqualOrderByMinPointsDesc(1, RecordStatus.ACTIVE, 5))
-                .thenReturn(Optional.of(tier));
 
         loyaltyService.rollbackEarnedPointsForBooking(booking);
 
@@ -142,13 +158,11 @@ class LoyaltyServiceTest {
         LoyaltyTransaction earned = LoyaltyTransaction.builder()
                 .id(99)
                 .account(account)
-                .points(5) // User earned 5, but current balance is 2 (maybe spent some)
+                .points(5) // đã tích 5 nhưng số dư hiện tại chỉ còn 2 (có thể đã tiêu bớt)
                 .build();
 
         when(loyaltyTransactionRepository.findByBookingIdAndTransactionType(100, TransactionType.EARN)).thenReturn(Optional.of(earned));
         when(loyaltyTransactionRepository.existsBySourceTransactionIdAndTransactionType(99, TransactionType.ROLLBACK)).thenReturn(false);
-        when(membershipTierRepository.findFirstByGarageIdAndStatusAndMinPointsLessThanEqualOrderByMinPointsDesc(1, RecordStatus.ACTIVE, 0))
-                .thenReturn(Optional.of(tier));
 
         loyaltyService.rollbackEarnedPointsForBooking(booking);
 

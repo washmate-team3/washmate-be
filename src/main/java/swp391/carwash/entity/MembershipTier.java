@@ -48,6 +48,11 @@ public class MembershipTier {
     @Column(name = "discount_percentage", nullable = false, precision = 5, scale = 2)
     private BigDecimal discountPercentage;
 
+    // Số ngày được đặt lịch trước của hạng này (hạng cao đặt xa hơn → ưu tiên vào slot sớm hơn).
+    // Null = dùng mặc định toàn hệ thống (washmate.booking.max-advance-days).
+    @Column(name = "advance_booking_days")
+    private Integer advanceBookingDays;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
     @Builder.Default

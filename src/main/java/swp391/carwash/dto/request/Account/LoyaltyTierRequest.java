@@ -32,4 +32,8 @@ public class LoyaltyTierRequest {
     @DecimalMin(value = "0")
     @DecimalMax(value = "100")
     private BigDecimal discountPercentage;
+
+    // Số ngày được đặt lịch trước của hạng. Bỏ trống = dùng mặc định hệ thống.
+    @Min(value = 1, message = "Advance booking days must be at least 1")
+    private Integer advanceBookingDays;
 }
